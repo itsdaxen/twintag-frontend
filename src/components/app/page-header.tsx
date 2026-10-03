@@ -5,7 +5,7 @@ export function PageHeader({
 }: {
   eyebrow: string;
   title: string;
-  description: string;
+  description?: string;
 }) {
   return (
     <header>
@@ -15,9 +15,11 @@ export function PageHeader({
       <h1 className="font-heading mt-2 text-3xl font-normal tracking-tight sm:text-4xl">
         {title}
       </h1>
-      <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-        {description}
-      </p>
+      {description && (
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+          {description}
+        </p>
+      )}
     </header>
   );
 }
