@@ -1,26 +1,108 @@
 @import "tailwindcss";
+@import "@heroui/styles";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* Design tokens */
+@theme {
+  /* Ground */
+  --color-background: hsl(0 0% 100%);
+  --color-foreground: hsl(222 47% 11%);
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  /* Primary — actions, links, focus */
+  --color-primary: hsl(221 83% 53%);
+  --color-primary-glow: hsl(221 92% 64%);
+  --color-primary-foreground: hsl(210 40% 98%);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  /* Cards */
+  --color-card: hsl(0 0% 100%);
+  --color-card-foreground: hsl(222 47% 11%);
+  --color-card-hover: hsl(210 20% 96%);
+
+  /* Popover and secondary surfaces */
+  --color-popover: hsl(0 0% 100%);
+  --color-popover-foreground: hsl(222 47% 11%);
+  --color-secondary: hsl(210 24% 96%);
+  --color-secondary-foreground: hsl(222 47% 11%);
+
+  /* Status */
+  --color-destructive: hsl(0 72% 51%);
+  --color-destructive-foreground: hsl(210 40% 98%);
+  --color-success: hsl(152 62% 36%);
+  --color-success-foreground: hsl(210 40% 98%);
+  --color-warning: hsl(32 95% 44%);
+  --color-warning-foreground: hsl(222 47% 11%);
+
+  /* Muted text and hairlines */
+  --color-subtle: hsl(210 24% 96%);
+  /* One step under the page ground, for the sidebar rail */
+  --color-rail: hsl(210 20% 93%);
+  --color-muted-foreground: hsl(215 16% 47%);
+  --color-input: hsl(214 20% 90%);
+  --color-ring: hsl(221 83% 53%);
+
+  /* Corners */
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-3xl: 24px;
+
+  /* Elevation */
+  --shadow-card: 0 8px 24px -16px hsl(222 47% 11% / 0.25);
+  --shadow-hover: 0 16px 40px -24px hsl(222 47% 11% / 0.3);
+  --shadow-glow: 0 12px 48px -20px hsl(221 92% 64% / 0.45);
+
+  /* Motion */
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Entrance animation. CSS, not JS, so content never waits on hydration */
+  --animate-rise: rise 0.6s var(--ease-smooth) both;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
   }
+
+  /* Inter for the product UI, Ubuntu only for marketing display type */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-ubuntu), ui-sans-serif, system-ui, sans-serif;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  /* Tailwind v4 defaults borders to currentColor */
+  *,
+  ::after,
+  ::before {
+    border-color: var(--color-border);
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    /* No entrance animation */
+    .animate-rise {
+      animation: none;
+    }
+  }
 }
