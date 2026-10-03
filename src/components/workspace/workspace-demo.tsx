@@ -14,6 +14,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { PointCloudViewer } from "@/components/workspace/point-cloud-viewer";
 
 type Selection = "cubicle" | "rex615";
 const assets = [
@@ -52,8 +53,11 @@ export function WorkspaceDemo() {
         </Button>
       </div>
 
-      <div className="grid min-h-[680px] flex-1 overflow-hidden rounded-2xl border bg-background shadow-card xl:grid-cols-[minmax(0,1fr)_320px]">
-        <section className="flex min-h-[580px] min-w-0 flex-col bg-slate-950">
+      <div className="grid min-h-[680px] flex-1 overflow-hidden rounded-2xl border bg-background shadow-card lg:h-[calc(100dvh-8.5rem)] lg:min-h-[560px] lg:flex-none lg:grid-cols-[minmax(0,1fr)_320px]">
+        <section
+          data-point-cloud-shell
+          className="flex min-h-[500px] min-w-0 flex-col bg-slate-950 lg:min-h-0"
+        >
           <div className="flex min-h-14 items-center justify-between gap-3 border-b border-white/10 px-4 text-white">
             <div className="flex items-center gap-3 text-sm">
               <span className="flex items-center gap-2 font-medium">
@@ -64,6 +68,11 @@ export function WorkspaceDemo() {
             <button
               type="button"
               aria-label="Open fullscreen"
+              onClick={() =>
+                document
+                  .querySelector<HTMLElement>("[data-point-cloud-shell]")
+                  ?.requestFullscreen()
+              }
               className="grid size-8 place-items-center text-slate-400 transition hover:text-white"
             >
               <Maximize2 size={17} />
@@ -71,15 +80,7 @@ export function WorkspaceDemo() {
           </div>
 
           <div className="relative flex-1 overflow-hidden">
-            <Image
-              src="/images/scan-preview.jpg"
-              alt="Mock spatial preview of the industrial scan"
-              fill
-              priority
-              className="object-cover brightness-[.72] saturate-[.7]"
-              sizes="(min-width: 1280px) 70vw, 100vw"
-            />
-            <div className="absolute inset-0 bg-linear-to-t from-slate-950/75 via-transparent to-slate-950/15" />
+            <PointCloudViewer />
             <SpatialTag
               className="top-[33%] left-[58%]"
               label="Cubicle A"
@@ -96,7 +97,7 @@ export function WorkspaceDemo() {
           </div>
         </section>
 
-        <aside className="flex min-h-0 flex-col border-t bg-background xl:border-t-0 xl:border-l">
+        <aside className="flex min-h-0 flex-col border-t bg-background lg:border-t-0 lg:border-l">
           <div className="flex h-14 items-center border-b px-5">
             <div>
               <p className="text-sm font-semibold">Detected assets</p>
