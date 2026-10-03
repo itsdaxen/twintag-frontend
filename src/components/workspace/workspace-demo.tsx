@@ -14,7 +14,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { PointCloudViewer } from "@/components/workspace/point-cloud-viewer";
+import { HybridSpatialViewer } from "@/components/workspace/hybrid-spatial-viewer";
 
 type Selection = "cubicle" | "rex615";
 const assets = [
@@ -62,7 +62,7 @@ export function WorkspaceDemo() {
             <div className="flex items-center gap-3 text-sm">
               <span className="flex items-center gap-2 font-medium">
                 <span className="size-2 rounded-full bg-emerald-400" />
-                Spatial preview
+                Digital twin
               </span>
             </div>
             <button
@@ -80,20 +80,7 @@ export function WorkspaceDemo() {
           </div>
 
           <div className="relative flex-1 overflow-hidden">
-            <PointCloudViewer />
-            <SpatialTag
-              className="top-[33%] left-[58%]"
-              label="Cubicle A"
-              active={selected === "cubicle"}
-              onClick={() => setSelected("cubicle")}
-            />
-            <SpatialTag
-              className="top-[52%] left-[70%]"
-              label="ABB REX615"
-              active={selected === "rex615"}
-              onClick={() => setSelected("rex615")}
-              accent
-            />
+            <HybridSpatialViewer />
           </div>
         </section>
 
@@ -229,42 +216,6 @@ function Document({ title }: { title: string }) {
       <FileText size={17} className="text-primary" />
       <span className="flex-1">{title}</span>
       <span className="text-muted-foreground">↗</span>
-    </button>
-  );
-}
-function SpatialTag({
-  label,
-  active,
-  accent,
-  className,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  accent?: boolean;
-  className: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "absolute z-10 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold shadow-xl backdrop-blur-md transition hover:scale-105",
-        accent
-          ? "border-sky-300/60 bg-blue-600/90 text-white"
-          : "border-white/25 bg-slate-950/75 text-white",
-        active ? "opacity-100" : "opacity-75",
-        className,
-      )}
-    >
-      <span
-        className={cn(
-          "size-2 rounded-full",
-          accent ? "bg-emerald-300" : "bg-white",
-        )}
-      />
-      {label}
     </button>
   );
 }

@@ -36,7 +36,11 @@ const REFERENCE_VIEW = {
   direction: new Vector3(-0.999485, 0.028677, 0.014428),
 };
 
-export function PointCloudViewer() {
+export function PointCloudViewer({
+  showControls = true,
+}: {
+  showControls?: boolean;
+}) {
   const hostRef = useRef<HTMLDivElement>(null);
   const cameraViewRef = useRef<CameraView | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
@@ -297,7 +301,7 @@ export function PointCloudViewer() {
             : "Point-cloud preview is not available."}
         </div>
       )}
-      {status === "ready" && (
+      {status === "ready" && showControls && (
         <>
           <div className="absolute top-3 right-3 z-10 flex items-center rounded-lg border border-white/8 bg-slate-950/55 p-0.5 text-[11px] text-white opacity-65 shadow-sm backdrop-blur-md transition-opacity hover:opacity-100">
             <ViewButton label="X" title="Side view" onClick={() => cameraViewRef.current?.setAxis("x")} />
