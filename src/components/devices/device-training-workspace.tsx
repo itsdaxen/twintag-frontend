@@ -13,7 +13,12 @@ import {
 import { Button } from "@/components/ui/button";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-const DEVICE_ANGLES = ["Front", "Back", "Left", "Right"] as const;
+const DEVICE_VIEWS = [
+  { label: "Front", slug: "front" },
+  { label: "Front left", slug: "front-left" },
+  { label: "Front right", slug: "front-right" },
+  { label: "Side", slug: "side" },
+] as const;
 
 type BoundingBox = {
   left: number;
@@ -45,7 +50,7 @@ export function DeviceTrainingWorkspace({ onCancel }: { onCancel: () => void }) 
   const [result, setResult] = useState<PreviewResult | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = useState("");
-  const hasAllSources = DEVICE_ANGLES.every((_, index) => Boolean(sources[index]));
+  const hasAllSources = DEVICE_VIEWS.every((_, index) => Boolean(sources[index]));
 
   const sourceUrls = useMemo(
     () => sources.map((source) => URL.createObjectURL(source)),
@@ -76,10 +81,10 @@ export function DeviceTrainingWorkspace({ onCancel }: { onCancel: () => void }) 
 
   const useReference = async () => {
     const references = await Promise.all(
-      DEVICE_ANGLES.map(async (angle) => {
-        const response = await fetch(`/images/rex615/${angle.toLowerCase()}.jpg`);
+      DEVICE_VIEWS.map(async (view) => {
+        const response = await fetch(`/images/rex615/${view.slug}.jpg`);
         const blob = await response.blob();
-        return new File([blob], `ABB-REX615-${angle.toLowerCase()}.jpg`, {
+        return new File([blob], `ABB-REX615-${view.slug}.jpg`, {
           type: blob.type,
         });
       }),
@@ -137,9 +142,9 @@ export function DeviceTrainingWorkspace({ onCancel }: { onCancel: () => void }) 
             style={{ gridTemplateColumns: "280px minmax(0, 1fr)", gap: 20 }}
           >
             <div className="grid grid-cols-2 gap-2">
-              {DEVICE_ANGLES.map((angle, index) => (
+              {DEVICE_VIEWS.map((view, index) => (
                 <label
-                  key={angle}
+                  key={view.slug}
                   className="group relative grid cursor-pointer place-items-center overflow-hidden rounded-xl border border-dashed bg-subtle transition hover:border-primary/50 hover:bg-blue-50/40"
                   style={{ height: 116 }}
                 >
@@ -150,17 +155,25 @@ export function DeviceTrainingWorkspace({ onCancel }: { onCancel: () => void }) 
                     className="sr-only"
                   />
                   {sourceUrls[index] ? (
-                    <Image
-                      src={sourceUrls[index]}
-                      alt={`${angle} device reference`}
-                      fill
-                      unoptimized
-                      className="object-contain p-2"
-                    />
+                    <>
+                      <Image
+                        src={sourceUrls[index]}
+                        alt={`${view.label} device reference`}
+                        fill
+                        unoptimized
+                        className="object-contain p-2"
+                      />
+                      <span
+                        className="absolute z-10 inline-flex whitespace-nowrap rounded-md bg-slate-950/75 px-2.5 py-1 text-[10px] font-medium leading-none text-white"
+                        style={{ bottom: 8, left: 8 }}
+                      >
+                        {view.label}
+                      </span>
+                    </>
                   ) : (
                     <span className="flex flex-col items-center gap-1 text-xs font-medium text-muted-foreground group-hover:text-primary">
-                      <AngleGuide angle={angle} />
-                      {angle}
+                      <AngleGuide view={view.slug} />
+                      {view.label}
                     </span>
                   )}
                 </label>
@@ -262,8 +275,8 @@ export function DeviceTrainingWorkspace({ onCancel }: { onCancel: () => void }) 
   );
 }
 
-function AngleGuide({ angle }: { angle: (typeof DEVICE_ANGLES)[number] }) {
-  const isSide = angle === "Left" || angle === "Right";
+function AngleGuide({ view }: { view: (typeof DEVICE_VIEWS)[number]["slug"] }) {
+  const isAngled = view !== "front";
   return (
     <svg
       viewBox="0 0 64 48"
@@ -272,30 +285,26 @@ function AngleGuide({ angle }: { angle: (typeof DEVICE_ANGLES)[number] }) {
       aria-hidden="true"
     >
       <rect
-        x={isSide ? 20 : 12}
+        x={isAngled ? 20 : 12}
         y="5"
-        width={isSide ? 24 : 40}
+        width={isAngled ? 24 : 40}
         height="36"
         rx="3"
         stroke="currentColor"
         strokeWidth="2"
       />
-      {isSide ? (
+      {isAngled ? (
         <>
           <path d="M26 11h12M26 16h12M26 32h12" stroke="currentColor" strokeWidth="2" />
-          <circle cx={angle === "Left" ? 25 : 39} cy="25" r="2" fill="currentColor" />
+          <circle cx={view === "front-left" ? 25 : 39} cy="25" r="2" fill="currentColor" />
         </>
-      ) : angle === "Front" ? (
+      ) : (
         <>
           <rect x="18" y="11" width="28" height="9" rx="1" stroke="currentColor" strokeWidth="2" />
           <circle cx="22" cy="28" r="2" fill="currentColor" />
           <circle cx="32" cy="28" r="2" fill="currentColor" />
           <circle cx="42" cy="28" r="2" fill="currentColor" />
           <path d="M18 35h28" stroke="currentColor" strokeWidth="2" />
-        </>
-      ) : (
-        <>
-          <path d="M18 12h28M18 18h28M18 24h28M18 30h28M18 36h28" stroke="currentColor" strokeWidth="2" />
         </>
       )}
     </svg>
