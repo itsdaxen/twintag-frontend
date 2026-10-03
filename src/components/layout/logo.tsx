@@ -1,11 +1,12 @@
 import Link from "next/link";
+import Image from "next/image";
 
 import { cn } from "@/lib/utils";
 
 const SIZES = {
-  sm: "text-base",
-  md: "text-lg",
-  lg: "text-xl",
+  sm: "text-base [&_img]:size-6",
+  md: "text-lg [&_img]:size-7",
+  lg: "text-xl [&_img]:size-8",
 } as const;
 
 export interface LogoProps {
@@ -19,12 +20,13 @@ export function Logo({ href = "/", size = "md", className }: LogoProps) {
     <Link
       href={href}
       className={cn(
-        "font-heading font-normal tracking-widest whitespace-nowrap uppercase transition-opacity hover:opacity-80",
+        "inline-flex items-center gap-2.5 font-sans font-bold tracking-tight whitespace-nowrap transition-opacity hover:opacity-80",
         SIZES[size],
         className,
       )}
     >
-      TwinTag
+      <Image src="/brand/twintag-mark.png" alt="" width={32} height={32} />
+      <span>TwinTag</span>
     </Link>
   );
 }
