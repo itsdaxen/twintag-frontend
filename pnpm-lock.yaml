@@ -109,6 +109,9 @@ importers:
 
   .:
     dependencies:
+      '@fluentui/react-file-type-icons':
+        specifier: ^8.18.2
+        version: 8.18.2(@types/react@19.3.0)(react@19.2.8)
       '@heroui/react':
         specifier: ^3.2.6
         version: 3.2.6(@internationalized/date@3.12.4)(@react-aria/ssr@3.10.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@react-aria/utils@3.34.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@react-spectrum/provider@3.11.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-aria-components@1.21.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-aria@3.52.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(tailwind-merge@3.7.0)(tailwindcss@4.3.3)
@@ -340,6 +343,42 @@ packages:
   '@floating-ui/utils@0.2.12':
     resolution: {integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==}
 
+  '@fluentui/dom-utilities@2.3.10':
+    resolution: {integrity: sha512-6WDImiLqTOpkEtfUKSStcTDpzmJfL6ZammomcjawN9xH/8u8G3Hx72CIt2MNck9giw/oUlNLJFdWRAjeP3rmPQ==}
+
+  '@fluentui/merge-styles@8.6.15':
+    resolution: {integrity: sha512-aNob5pyHJ9wxyr/E79+YTrS9B0kkUcaHoY0dfeCVM+VF4IvWOr8u/9Cxan7vpYUMXy93QWPeDxAVmlzsRTlEpA==}
+
+  '@fluentui/react-file-type-icons@8.18.2':
+    resolution: {integrity: sha512-95MsrAXuW1PQm3TdTbVY0MV/+uUNrZqG2JnqzPM+I9txZHNH8AQCBihjiZmwfaFRk/GpcJ/M0mQ0ZVvolkr46g==}
+    peerDependencies:
+      '@types/react': '>=16.8.0 <20.0.0'
+      react: '>=16.8.0 <20.0.0'
+
+  '@fluentui/react-window-provider@2.3.2':
+    resolution: {integrity: sha512-T15zFPIWr9De8hNkapne7YyvcxclyTK2bMXXHZwbWLkVeH/lGHRG0CIy/calNGKa86wuzMJhq8iqFW2W6+EwVQ==}
+    peerDependencies:
+      '@types/react': '>=16.8.0 <20.0.0'
+      react: '>=16.8.0 <20.0.0'
+
+  '@fluentui/set-version@8.2.24':
+    resolution: {integrity: sha512-8uNi2ThvNgF+6d3q2luFVVdk/wZV0AbRfJ85kkvf2+oSRY+f6QVK0w13vMorNhA5puumKcZniZoAfUF02w7NSg==}
+
+  '@fluentui/style-utilities@8.15.3':
+    resolution: {integrity: sha512-zuyR421wNDN9CTykQABWNHm1X/3k+uTRDYQGvrpxLw8PKI9rB8OhmE+oZZLq2rzh1R3ZUiQV3+6LTe9D/8FYFA==}
+
+  '@fluentui/theme@2.7.3':
+    resolution: {integrity: sha512-DrzVYJS8gIxMsbZ8CI/hFQu4LcDsPyVag5McKCytrrvRLBAskD4bRdkTlyljhK2jUEDCsVMl9KWxnqsqy7SVHw==}
+    peerDependencies:
+      '@types/react': '>=16.8.0 <20.0.0'
+      react: '>=16.8.0 <20.0.0'
+
+  '@fluentui/utilities@8.17.3':
+    resolution: {integrity: sha512-lMk+/k7kVGXSlLC86Z0MlMrL5aeaLuDbF2GG25hiWqMBqh2dJVeqwgqruZDt5rYXs0SEBAls3YvvN/IR81PQyw==}
+    peerDependencies:
+      '@types/react': '>=16.8.0 <20.0.0'
+      react: '>=16.8.0 <20.0.0'
+
   '@heroui/react@3.2.6':
     resolution: {integrity: sha512-KBhUUUdX4571SSjwpuBPEFZTYAw/tmGezTIsTnjIOlXDZkjWACfhFe6ibtReO+xTkUcfxCV1r3cF00/3OPlhhw==}
     peerDependencies:
@@ -563,6 +602,9 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
+
+  '@microsoft/load-themed-styles@1.10.295':
+    resolution: {integrity: sha512-W+IzEBw8a6LOOfRJM02dTT7BDZijxm+Z7lhtOAz1+y9vQm1Kdz9jlAO+qCEKsfxtUOmKilW8DIRqFw2aUgKeGg==}
 
   '@napi-rs/wasm-runtime@1.2.4':
     resolution: {integrity: sha512-AJxoUD2/15ESHbvpcyjU274nsAPLuOtPHCk0vKJM5pj//Fg/B1FXNWjPnXTT9PymCYYiHo4zPj0ZomXBKhoy7g==}
@@ -3363,6 +3405,66 @@ snapshots:
 
   '@floating-ui/utils@0.2.12': {}
 
+  '@fluentui/dom-utilities@2.3.10':
+    dependencies:
+      '@fluentui/set-version': 8.2.24
+      tslib: 2.8.1
+
+  '@fluentui/merge-styles@8.6.15':
+    dependencies:
+      '@fluentui/set-version': 8.2.24
+      tslib: 2.8.1
+
+  '@fluentui/react-file-type-icons@8.18.2(@types/react@19.3.0)(react@19.2.8)':
+    dependencies:
+      '@fluentui/set-version': 8.2.24
+      '@fluentui/style-utilities': 8.15.3(@types/react@19.3.0)(react@19.2.8)
+      '@types/react': 19.3.0
+      react: 19.2.8
+      tslib: 2.8.1
+
+  '@fluentui/react-window-provider@2.3.2(@types/react@19.3.0)(react@19.2.8)':
+    dependencies:
+      '@fluentui/set-version': 8.2.24
+      '@types/react': 19.3.0
+      react: 19.2.8
+      tslib: 2.8.1
+
+  '@fluentui/set-version@8.2.24':
+    dependencies:
+      tslib: 2.8.1
+
+  '@fluentui/style-utilities@8.15.3(@types/react@19.3.0)(react@19.2.8)':
+    dependencies:
+      '@fluentui/merge-styles': 8.6.15
+      '@fluentui/set-version': 8.2.24
+      '@fluentui/theme': 2.7.3(@types/react@19.3.0)(react@19.2.8)
+      '@fluentui/utilities': 8.17.3(@types/react@19.3.0)(react@19.2.8)
+      '@microsoft/load-themed-styles': 1.10.295
+      tslib: 2.8.1
+    transitivePeerDependencies:
+      - '@types/react'
+      - react
+
+  '@fluentui/theme@2.7.3(@types/react@19.3.0)(react@19.2.8)':
+    dependencies:
+      '@fluentui/merge-styles': 8.6.15
+      '@fluentui/set-version': 8.2.24
+      '@fluentui/utilities': 8.17.3(@types/react@19.3.0)(react@19.2.8)
+      '@types/react': 19.3.0
+      react: 19.2.8
+      tslib: 2.8.1
+
+  '@fluentui/utilities@8.17.3(@types/react@19.3.0)(react@19.2.8)':
+    dependencies:
+      '@fluentui/dom-utilities': 2.3.10
+      '@fluentui/merge-styles': 8.6.15
+      '@fluentui/react-window-provider': 2.3.2(@types/react@19.3.0)(react@19.2.8)
+      '@fluentui/set-version': 8.2.24
+      '@types/react': 19.3.0
+      react: 19.2.8
+      tslib: 2.8.1
+
   '@heroui/react@3.2.6(@internationalized/date@3.12.4)(@react-aria/ssr@3.10.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@react-aria/utils@3.34.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@react-spectrum/provider@3.11.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-aria-components@1.21.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-aria@3.52.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(tailwind-merge@3.7.0)(tailwindcss@4.3.3)':
     dependencies:
       '@heroui/styles': 3.2.6(tailwind-merge@3.7.0)(tailwindcss@4.3.3)
@@ -3547,6 +3649,8 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.6.0
+
+  '@microsoft/load-themed-styles@1.10.295': {}
 
   '@napi-rs/wasm-runtime@1.2.4(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)':
     dependencies:

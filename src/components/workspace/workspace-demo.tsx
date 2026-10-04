@@ -13,6 +13,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { getFileTypeIconAsUrl } from "@fluentui/react-file-type-icons";
 import { HybridSpatialViewer } from "@/components/workspace/hybrid-spatial-viewer";
 import type { AssetTag } from "@/lib/asset-tags";
 
@@ -24,6 +25,9 @@ export function WorkspaceDemo() {
   const [tagStatus, setTagStatus] = useState<"loading" | "ready" | "error">(
     "loading",
   );
+  const [sidebarMode, setSidebarMode] = useState<"list" | "info" | "docs">("list");
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+
   const active = selected ? assets.find((asset) => asset.id === selected) : null;
 
   useEffect(() => {
@@ -38,6 +42,11 @@ export function WorkspaceDemo() {
       })
       .catch(() => setTagStatus("error"));
   }, []);
+
+  const selectAsset = (id: string | null) => {
+    setSelected(id);
+    setSidebarMode(id ? "info" : "list");
+  };
 
   return (
     <div className="flex min-h-dvh flex-col gap-4 p-4 pt-20 sm:p-6 md:pt-6 lg:p-8">
@@ -86,13 +95,13 @@ export function WorkspaceDemo() {
             <HybridSpatialViewer
               tags={assets}
               selectedTagId={active?.id ?? null}
-              onSelectTag={setSelected}
+              onSelectTag={selectAsset}
             />
           </div>
         </section>
 
         <aside className="flex min-h-0 flex-col border-t bg-background lg:border-t-0 lg:border-l">
-          {!active ? (
+          {sidebarMode === "list" && (
             <>
               <div className="flex h-14 shrink-0 items-center border-b px-5">
                 <div>
@@ -111,7 +120,7 @@ export function WorkspaceDemo() {
                   <button
                     key={asset.id}
                     type="button"
-                    onClick={() => setSelected(asset.id)}
+                    onClick={() => selectAsset(asset.id)}
                     className={cn(
                       "flex w-full items-center gap-3 border-l-2 px-5 py-3 text-left transition",
                       selected === asset.id
@@ -149,14 +158,15 @@ export function WorkspaceDemo() {
                 )}
               </div>
             </>
-          ) : (
+          )}
+          {sidebarMode === "info" && active && (
             <>
               <div className="flex h-14 shrink-0 items-center gap-2 border-b px-3">
                 <Button
                   variant="ghost"
                   size="icon"
                   className="size-8 shrink-0 rounded-full"
-                  onClick={() => setSelected(null)}
+                  onClick={() => selectAsset(null)}
                   aria-label="Back to list"
                 >
                   <ChevronLeft size={18} />
@@ -172,7 +182,7 @@ export function WorkspaceDemo() {
                 <h2 className="mt-1 text-xl font-semibold tracking-tight">
                   {active.label}
                 </h2>
-                <DeviceDetails asset={active} />
+                <DeviceDetails asset={active} onOpenDocs={() => setSidebarMode("docs")} />
               </div>
               <div className="border-t p-4">
                 <Button className="w-full">
@@ -182,13 +192,57 @@ export function WorkspaceDemo() {
               </div>
             </>
           )}
+          {sidebarMode === "docs" && active && (
+            <>
+              <div className="flex h-14 shrink-0 items-center gap-2 border-b px-3">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 shrink-0 rounded-full"
+                  onClick={() => setSidebarMode("info")}
+                  aria-label="Back to details"
+                >
+                  <ChevronLeft size={18} />
+                </Button>
+                <div>
+                  <p className="text-sm font-semibold">Documentation</p>
+                </div>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto p-5">
+                <h2 className="text-lg font-semibold tracking-tight mb-4">
+                  {active.label} Manuals
+                </h2>
+                <div className="flex flex-col gap-2">
+                  <Document title="Installation Guide" file="/documents/REX615_inst_001864_ENc.pdf" onClick={setPdfUrl} />
+                  <Document title="Operation Guide" file="/documents/REX615_oper_001866_ENd.pdf" onClick={setPdfUrl} />
+                  <Document title="IEC61850 Engineering Guide" file="/documents/REX615_iec61850eng_001863_ENc.pdf" onClick={setPdfUrl} />
+                  <Document title="Quick Installation Guide" file="/documents/REX615_Quick_installation_guide_2NGA001854_ENb.pdf" onClick={setPdfUrl} />
+                  <Document title="Quick Start Guide" file="/documents/REX615_QSG_2NGA002926_ENb.pdf" onClick={setPdfUrl} />
+                </div>
+              </div>
+            </>
+          )}
         </aside>
       </div>
+
+      {pdfUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 sm:p-8">
+          <div className="relative flex h-full w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl">
+            <div className="flex h-14 items-center justify-between border-b px-4">
+              <span className="font-medium text-slate-900">Document Reader</span>
+              <Button variant="ghost" size="sm" onClick={() => setPdfUrl(null)}>
+                Close
+              </Button>
+            </div>
+            <iframe src={pdfUrl} className="h-full w-full border-0" title="PDF Document" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function DeviceDetails({ asset }: { asset: AssetTag }) {
+function DeviceDetails({ asset, onOpenDocs }: { asset: AssetTag; onOpenDocs: () => void }) {
   return (
     <>
       <div className="relative mt-5 aspect-[16/8] overflow-hidden rounded-xl bg-subtle">
@@ -210,15 +264,19 @@ function DeviceDetails({ asset }: { asset: AssetTag }) {
       <p className="mt-2 text-xs text-muted-foreground">
         Spatial agreement ±{Math.round(asset.spatial_spread * 100)} cm · {asset.observation_count} observations
       </p>
-      <div className="mt-5">
-        <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-          Related documents
-        </p>
-        <Document title="REX615 technical manual" />
+      <div className="mt-5 border-t pt-4">
+        <Button variant="outline" className="w-full justify-between" onClick={onOpenDocs}>
+          <span className="flex items-center gap-2">
+            <FileText size={17} />
+            View documentation
+          </span>
+          <span className="text-muted-foreground">↗</span>
+        </Button>
       </div>
     </>
   );
 }
+
 function Detail({ label, value }: { label: string; value: string }) {
   return (
     <div>
@@ -227,15 +285,42 @@ function Detail({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
-function Document({ title }: { title: string }) {
+
+function DocumentIcon({ file, className }: { file: string; className?: string }) {
+  const extension = file.split(".").pop()?.toLowerCase() ?? "";
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return <div className={cn("shrink-0", className)} style={{ width: 20, height: 20 }} />;
+  }
+
+  const iconUrl = getFileTypeIconAsUrl({ extension, size: 20 });
+  return (
+    /* eslint-disable-next-line @next/next/no-img-element */
+    <img
+      src={iconUrl}
+      alt={`${extension} icon`}
+      className={cn("shrink-0 object-contain", className)}
+      style={{ width: 20, height: 20 }}
+    />
+  );
+}
+
+function Document({ title, file, onClick }: { title: string; file: string; onClick: (url: string) => void }) {
   return (
     <button
       type="button"
-      className="mt-2 flex w-full items-center gap-3 rounded-2xl border p-3 text-left text-sm transition hover:bg-subtle"
+      onClick={() => onClick(file)}
+      className="flex w-full items-center gap-3 rounded-2xl border p-3 text-left text-sm transition hover:bg-subtle"
     >
-      <FileText size={17} className="text-primary" />
+      <DocumentIcon file={file} className="shrink-0" />
       <span className="flex-1">{title}</span>
-      <span className="text-muted-foreground">↗</span>
+      <span className="text-muted-foreground shrink-0">↗</span>
     </button>
   );
 }
