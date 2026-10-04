@@ -7,6 +7,20 @@ export type TagEvidence = {
   box: { left: number; top: number; right: number; bottom: number };
 };
 
+export type ExtractedText = {
+  text: string;
+  confidence: number;
+  evidence_image_id: string;
+};
+
+export type AssetContext = {
+  model: string;
+  inference: "precomputed";
+  official_labels: ExtractedText[];
+  inspection_markings: ExtractedText[];
+  field_notes: ExtractedText[];
+};
+
 export type AssetTag = {
   id: string;
   asset_type: string;
@@ -19,4 +33,5 @@ export type AssetTag = {
   sweep_count: number;
   spatial_spread: number;
   evidence: TagEvidence[];
+  context?: AssetContext | null;
 };

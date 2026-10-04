@@ -18,6 +18,8 @@ import {
   Trash2,
   AlertCircle,
   LoaderCircle,
+  BadgeCheck,
+  StickyNote,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -824,6 +826,48 @@ function DeviceDetails({ asset, onOpenDocs }: { asset: AssetTag; onOpenDocs: () 
         <p className="mt-2 text-xs text-muted-foreground">
           Spatial agreement ±{Math.round(asset.spatial_spread * 100)} cm · {asset.observation_count} observations
         </p>
+      )}
+      {asset.context && (
+        <div className="mt-5 border-t pt-4">
+          <p className="text-xs font-semibold tracking-wide text-primary uppercase">Extracted context</p>
+          <p className="mt-1 text-[11px] text-muted-foreground">Qwen3-VL · full-resolution scan evidence</p>
+          {asset.context.official_labels.length > 0 && (
+            <div className="mt-3 rounded-xl border bg-blue-50/50 p-3">
+              <div className="flex items-center gap-2 text-xs font-medium text-blue-700">
+                <BadgeCheck size={14} />
+                Official equipment label
+              </div>
+              <p className="mt-1.5 text-sm font-semibold">
+                {asset.context.official_labels.map((item) => item.text).join(" · ")}
+              </p>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                {Math.round(Math.min(...asset.context.official_labels.map((item) => item.confidence)) * 100)}% OCR confidence
+              </p>
+            </div>
+          )}
+          {asset.context.inspection_markings.length > 0 && (
+            <div className="mt-3">
+              <p className="text-xs font-medium text-muted-foreground">Inspection status</p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {asset.context.inspection_markings.map((item) => (
+                  <span key={item.text} className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700">
+                    {item.text}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {asset.context.field_notes.map((item) => (
+            <div key={item.text} className="mt-3 flex gap-2 rounded-xl bg-amber-50 p-3 text-amber-950">
+              <StickyNote size={15} className="mt-0.5 shrink-0 text-amber-700" />
+              <div className="min-w-0">
+                <p className="text-[11px] font-medium text-amber-700">Unverified field note</p>
+                <p className="mt-0.5 text-xs font-medium">{item.text}</p>
+                <p className="mt-1 text-[10px] text-amber-700">{Math.round(item.confidence * 100)}% OCR confidence · review recommended</p>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
       <div className="mt-5 border-t pt-4">
         <Button variant="outline" className="w-full justify-between" onClick={onOpenDocs}>

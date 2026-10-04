@@ -110,6 +110,9 @@ export default function MatterportPage() {
           }));
         const documentLinks = documents.map((document) => `[${document.title}](${document.url})`).join("\n");
         const confidence = tag.source === "model" ? `Detection confidence: ${Math.round(tag.confidence * 100)}%` : "Manually placed tag";
+        const officialLabels = tag.context?.official_labels.map((item) => item.text).join(" · ");
+        const inspection = tag.context?.inspection_markings.map((item) => item.text).join(", ");
+        const fieldNotes = tag.context?.field_notes.map((item) => `${item.text} (unverified)`).join(", ");
         return {
           twinTagId: tag.id,
           query: ADD_TAG_MUTATION,
@@ -117,7 +120,14 @@ export default function MatterportPage() {
             modelId: "<MATTERPORT_MODEL_ID>",
             floorId: "<FLOOR_ID>",
             label: tag.label,
-            description: [tag.asset_type, confidence, documentLinks].filter(Boolean).join("\n\n"),
+            description: [
+              tag.asset_type,
+              officialLabels && `Equipment label: ${officialLabels}`,
+              inspection && `Inspection status: ${inspection}`,
+              fieldNotes && `Field notes: ${fieldNotes}`,
+              confidence,
+              documentLinks,
+            ].filter(Boolean).join("\n\n"),
             anchorPositionX: tag.position.x,
             anchorPositionY: tag.position.y,
             anchorPositionZ: tag.position.z,
