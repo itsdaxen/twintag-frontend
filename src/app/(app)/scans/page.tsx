@@ -4,7 +4,8 @@ import { PageHeader } from "@/components/app/page-header";
 import { Button } from "@/components/ui/button";
 import { Plus, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
+import { ACTIVE_SCAN_STORAGE_KEY } from "@/components/workspace/workspace-resume";
 
 type ScanJob = {
   id: string;
@@ -14,50 +15,75 @@ type ScanJob = {
   stage: string;
 };
 
+const SCANS_STORAGE_KEY = "twintag_scans";
+
 export default function ScansPage() {
-  const [scans, setScans] = useState<ScanJob[]>([
-    {
-      id: "veo-reference",
-      name: "VEO reference facility",
-      status: "ready",
-      progress: 100,
-      stage: "Processed",
-    }
-  ]);
+  const [scans, setScans] = useState<ScanJob[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(SCANS_STORAGE_KEY) ?? "[]") as ScanJob[];
+      const restored = saved.map((scan) =>
+        scan.status === "processing"
+          ? { ...scan, status: "ready" as const, progress: 100, stage: "Processed" }
+          : scan,
+      );
+      if (restored.length > 0) {
+        localStorage.setItem(SCANS_STORAGE_KEY, JSON.stringify(restored));
+        queueMicrotask(() => setScans(restored));
+      }
+    } catch {
+      localStorage.removeItem(SCANS_STORAGE_KEY);
+    }
+  }, []);
+
+  const updateScans = (updater: (current: ScanJob[]) => ScanJob[]) => {
+    setScans((current) => {
+      const next = updater(current);
+      localStorage.setItem(SCANS_STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
+  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const newScan: ScanJob = {
-      id: "mock-" + crypto.randomUUID(),
+      id: "veo-reference",
       name: file.name.replace(".e57", ""),
       status: "processing",
       progress: 0,
       stage: "Uploading...",
     };
 
-    setScans((prev) => [newScan, ...prev]);
+    updateScans((prev) => [newScan, ...prev.filter((scan) => scan.id !== newScan.id)]);
+    localStorage.removeItem(`twintag_scan_processed:${newScan.id}`);
+    localStorage.removeItem(`twintag_deleted_tags:${newScan.id}`);
+    localStorage.removeItem(`twintag_manual_tags:${newScan.id}`);
+    localStorage.setItem(`twintag_scan_name:${newScan.id}`, newScan.name);
+    localStorage.setItem(`twintag_scan_size:${newScan.id}`, String(file.size));
+    localStorage.setItem(ACTIVE_SCAN_STORAGE_KEY, newScan.id);
     e.target.value = ""; // Reset input
     simulateProcessing(newScan.id);
   };
 
   const simulateProcessing = (scanId: string) => {
     const stages = [
-      { name: "Uploading file...", duration: 2000 },
-      { name: "Reading scanner positions...", duration: 2500 },
-      { name: "Extracting camera images...", duration: 3000 },
-      { name: "Recognizing equipment...", duration: 3500 },
-      { name: "Calculating 3D positions...", duration: 2000 },
-      { name: "Preparing asset tags...", duration: 1500 },
+      { name: "Uploading E57…", duration: 900 },
+      { name: "Reading scanner positions…", duration: 1000 },
+      { name: "Extracting camera images…", duration: 1100 },
+      { name: "Building point cloud…", duration: 1400 },
+      { name: "Registering panoramas…", duration: 1000 },
+      { name: "Preparing digital twin…", duration: 800 },
     ];
 
     let currentStageIndex = 0;
     
     const nextStage = () => {
       if (currentStageIndex >= stages.length) {
-        setScans((prev) =>
+        updateScans((prev) =>
           prev.map((s) =>
             s.id === scanId
               ? { ...s, status: "ready", progress: 100, stage: "Processed" }
@@ -70,7 +96,7 @@ export default function ScansPage() {
       const stage = stages[currentStageIndex];
       const baseProgress = (currentStageIndex / stages.length) * 100;
       
-      setScans((prev) =>
+      updateScans((prev) =>
         prev.map((s) =>
           s.id === scanId
             ? { ...s, stage: stage.name, progress: baseProgress }
@@ -80,7 +106,7 @@ export default function ScansPage() {
 
       // Simulate progress bar moving during the stage
       const interval = setInterval(() => {
-        setScans((prev) =>
+        updateScans((prev) =>
           prev.map((s) => {
             if (s.id !== scanId || s.status === "ready") return s;
             // Increment progress slowly up to the next stage boundary
@@ -157,6 +183,21 @@ export default function ScansPage() {
           );
         })}
       </div>
+      {scans.length === 0 && (
+        <div className="mt-8 grid min-h-64 place-items-center rounded-2xl border border-dashed bg-background px-6 text-center">
+          <div>
+            <span className="mx-auto grid size-12 place-items-center rounded-xl bg-blue-50 text-primary">
+              <Plus size={22} />
+            </span>
+            <h2 className="mt-4 font-semibold">Import your first scan</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Upload a structured E57 file to create the digital twin.</p>
+            <Button className="mt-5" onClick={() => fileInputRef.current?.click()}>
+              <Plus size={16} />
+              Upload E57
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -24,7 +24,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         onClose={() => setIsOpen(false)}
         onCollapseToggle={() => setIsCollapsed((current) => !current)}
       />
-      <main className="relative min-h-0 min-w-0 flex-1 md:pl-20 lg:pl-0">
+      <main className="relative min-h-0 min-w-0 flex-1 overflow-x-hidden md:pl-20 lg:pl-0">
         <Button
           aria-label="Open navigation"
           className="fixed top-4 left-4 z-30 bg-background/90 shadow-sm backdrop-blur md:hidden"

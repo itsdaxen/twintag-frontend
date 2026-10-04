@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import type { DeviceProfile } from "@/components/devices/device-library";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const DEVICE_VIEWS = [
@@ -62,7 +63,13 @@ type BackgroundList = {
   custom_count: number;
 };
 
-export function DeviceTrainingWorkspace({ onCancel }: { onCancel: () => void }) {
+export function DeviceTrainingWorkspace({
+  onCancel,
+  onComplete,
+}: {
+  onCancel: () => void;
+  onComplete: (profile: DeviceProfile) => void;
+}) {
   const [deviceName, setDeviceName] = useState("");
   const [deviceType, setDeviceType] = useState("");
   const [sources, setSources] = useState<File[]>([]);
@@ -71,6 +78,8 @@ export function DeviceTrainingWorkspace({ onCancel }: { onCancel: () => void }) 
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = useState("");
   const [backgroundsOpen, setBackgroundsOpen] = useState(false);
+  const [trainingStage, setTrainingStage] = useState<string | null>(null);
+  const [trainingProgress, setTrainingProgress] = useState(0);
   const hasAllSources = DEVICE_VIEWS.every((_, index) => Boolean(sources[index]));
 
   const sourceUrls = useMemo(
@@ -145,6 +154,29 @@ export function DeviceTrainingWorkspace({ onCancel }: { onCancel: () => void }) 
     }
   };
 
+  const startTraining = async () => {
+    if (!result || trainingStage) return;
+    const stages = [
+      "Preparing 10,000 training samples…",
+      "Training device recognizer…",
+      "Validating detection quality…",
+      "Publishing recognition profile…",
+    ];
+    for (const [index, stage] of stages.entries()) {
+      setTrainingStage(stage);
+      setTrainingProgress(Math.round((index / stages.length) * 100));
+      await new Promise((resolve) => window.setTimeout(resolve, 900));
+    }
+    setTrainingProgress(100);
+    await new Promise((resolve) => window.setTimeout(resolve, 350));
+    onComplete({
+      id: deviceName.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""),
+      name: result.device_name,
+      type: result.device_type,
+      samples: result.planned_samples,
+    });
+  };
+
   return (
     <div className="mt-8">
       <button
@@ -161,7 +193,7 @@ export function DeviceTrainingWorkspace({ onCancel }: { onCancel: () => void }) 
             className="mt-5 grid"
             style={{ gridTemplateColumns: "280px minmax(0, 1fr)", gap: 20 }}
           >
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid content-start grid-cols-2 gap-2 self-start [grid-auto-rows:116px]">
               {DEVICE_VIEWS.map((view, index) => (
                 <label
                   key={view.slug}
@@ -288,9 +320,19 @@ export function DeviceTrainingWorkspace({ onCancel }: { onCancel: () => void }) 
             <h2 className="text-xl font-semibold">Generated previews</h2>
           </div>
           {result && (
-            <div className="flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">
-              <Check size={14} />
-              {result.preview_count} shown · {result.planned_samples.toLocaleString()} planned
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <div className="flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">
+                <Check size={14} />
+                {result.preview_count} shown · {result.planned_samples.toLocaleString()} planned
+              </div>
+              <Button
+                size="sm"
+                onClick={startTraining}
+                disabled={Boolean(trainingStage)}
+              >
+                <Sparkles size={15} />
+                Add & start training
+              </Button>
             </div>
           )}
         </div>
@@ -326,6 +368,21 @@ export function DeviceTrainingWorkspace({ onCancel }: { onCancel: () => void }) 
       </div>
       {backgroundsOpen && (
         <TrainingBackgroundModal onClose={() => setBackgroundsOpen(false)} />
+      )}
+      {trainingStage && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl border bg-background p-6 shadow-2xl">
+            <span className="grid size-11 place-items-center rounded-xl bg-blue-50 text-primary">
+              <LoaderCircle className="animate-spin" size={22} />
+            </span>
+            <h2 className="mt-4 text-lg font-semibold">Training recognition model</h2>
+            <p className="mt-2 text-sm text-muted-foreground">{trainingStage}</p>
+            <div className="mt-5 h-2 overflow-hidden rounded-full bg-subtle">
+              <div className="h-full rounded-full bg-primary transition-[width] duration-500" style={{ width: `${trainingProgress}%` }} />
+            </div>
+            <p className="mt-2 text-right text-xs font-medium text-muted-foreground">{trainingProgress}%</p>
+          </div>
+        </div>
       )}
     </div>
   );
