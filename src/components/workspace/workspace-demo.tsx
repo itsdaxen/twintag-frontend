@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import {
   Check,
+  ChevronLeft,
   CircleDot,
   FileText,
   Maximize2,
@@ -23,7 +24,7 @@ export function WorkspaceDemo() {
   const [tagStatus, setTagStatus] = useState<"loading" | "ready" | "error">(
     "loading",
   );
-  const active = assets.find((asset) => asset.id === selected) ?? assets[0];
+  const active = selected ? assets.find((asset) => asset.id === selected) : null;
 
   useEffect(() => {
     fetch(`${API_URL}/api/scans/veo-reference/tags`)
@@ -33,7 +34,6 @@ export function WorkspaceDemo() {
       })
       .then((tags) => {
         setAssets(tags);
-        setSelected(tags[0]?.id ?? null);
         setTagStatus("ready");
       })
       .catch(() => setTagStatus("error"));
@@ -92,78 +92,96 @@ export function WorkspaceDemo() {
         </section>
 
         <aside className="flex min-h-0 flex-col border-t bg-background lg:border-t-0 lg:border-l">
-          <div className="flex h-14 items-center border-b px-5">
-            <div>
-              <p className="text-sm font-semibold">Detected assets</p>
-              <p className="text-xs text-muted-foreground">
-                {tagStatus === "loading"
-                  ? "Locating devices…"
-                  : tagStatus === "error"
-                    ? "Backend unavailable"
-                    : `${assets.length} model-confirmed devices`}
-              </p>
-            </div>
-          </div>
-          <div className="max-h-64 overflow-y-auto border-b py-2">
-            {assets.map((asset) => (
-              <button
-                key={asset.id}
-                type="button"
-                onClick={() => setSelected(asset.id)}
-                className={cn(
-                  "flex w-full items-center gap-3 border-l-2 px-5 py-3 text-left transition",
-                  selected === asset.id
-                    ? "border-primary bg-blue-50/70"
-                    : "border-transparent hover:bg-subtle",
+          {!active ? (
+            <>
+              <div className="flex h-14 shrink-0 items-center border-b px-5">
+                <div>
+                  <p className="text-sm font-semibold">Detected assets</p>
+                  <p className="text-xs text-muted-foreground">
+                    {tagStatus === "loading"
+                      ? "Locating devices…"
+                      : tagStatus === "error"
+                        ? "Backend unavailable"
+                        : `${assets.length} model-confirmed devices`}
+                  </p>
+                </div>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto py-2">
+                {assets.map((asset) => (
+                  <button
+                    key={asset.id}
+                    type="button"
+                    onClick={() => setSelected(asset.id)}
+                    className={cn(
+                      "flex w-full items-center gap-3 border-l-2 px-5 py-3 text-left transition",
+                      selected === asset.id
+                        ? "border-primary bg-blue-50/70"
+                        : "border-transparent hover:bg-subtle",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "grid size-9 shrink-0 place-items-center rounded-xl",
+                        selected === asset.id
+                          ? "bg-blue-100 text-blue-700"
+                          : "bg-subtle text-muted-foreground",
+                      )}
+                    >
+                      <CircleDot size={17} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium">
+                        {asset.label}
+                      </span>
+                      <span className="block text-xs text-muted-foreground">
+                        {asset.sweep_count} sweep confirmation
+                      </span>
+                    </span>
+                    <span className="text-xs font-semibold text-emerald-700">
+                      {Math.round(asset.confidence * 100)}%
+                    </span>
+                  </button>
+                ))}
+                {tagStatus === "error" && (
+                  <div className="px-5 py-4 text-sm text-muted-foreground">
+                    Start the TwinTag backend to load detected assets.
+                  </div>
                 )}
-              >
-                <span
-                  className={cn(
-                    "grid size-9 shrink-0 place-items-center rounded-xl",
-                    selected === asset.id
-                      ? "bg-blue-100 text-blue-700"
-                      : "bg-subtle text-muted-foreground",
-                  )}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex h-14 shrink-0 items-center gap-2 border-b px-3">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 shrink-0 rounded-full"
+                  onClick={() => setSelected(null)}
+                  aria-label="Back to list"
                 >
-                  <CircleDot size={17} />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium">
-                    {asset.label}
-                  </span>
-                  <span className="block text-xs text-muted-foreground">
-                    {asset.sweep_count} sweep confirmation
-                  </span>
-                </span>
-                <span className="text-xs font-semibold text-emerald-700">
-                  {Math.round(asset.confidence * 100)}%
-                </span>
-              </button>
-            ))}
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto p-5">
-            {active ? <div>
-              <p className="text-xs font-semibold tracking-wide text-primary uppercase">
-                Selected asset
-              </p>
-              <h2 className="mt-1 text-xl font-semibold tracking-tight">
-                {active.label}
-              </h2>
-              <DeviceDetails asset={active} />
-            </div> : (
-              <p className="text-sm text-muted-foreground">
-                {tagStatus === "error"
-                  ? "Start the TwinTag backend to load detected assets."
-                  : "Loading detected assets…"}
-              </p>
-            )}
-          </div>
-          <div className="border-t p-4">
-            <Button className="w-full">
-              <Check />
-              Publish tag
-            </Button>
-          </div>
+                  <ChevronLeft size={18} />
+                </Button>
+                <div>
+                  <p className="text-sm font-semibold">Asset details</p>
+                </div>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto p-5">
+                <p className="text-xs font-semibold tracking-wide text-primary uppercase">
+                  Selected asset
+                </p>
+                <h2 className="mt-1 text-xl font-semibold tracking-tight">
+                  {active.label}
+                </h2>
+                <DeviceDetails asset={active} />
+              </div>
+              <div className="border-t p-4">
+                <Button className="w-full">
+                  <Check />
+                  Publish tag
+                </Button>
+              </div>
+            </>
+          )}
         </aside>
       </div>
     </div>
