@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
+import { Webhook, 
   Box,
   Library,
   PanelLeftClose,
@@ -20,6 +20,7 @@ const items = [
   { href: "/workspace", label: "Workspace", icon: Box },
   { href: "/scans", label: "Scans", icon: ScanLine },
   { href: "/devices", label: "Device Library", icon: Library },
+  { href: "/matterport", label: "Matterport API", icon: Webhook },
 ] as const;
 
 export function AppSidebar({
