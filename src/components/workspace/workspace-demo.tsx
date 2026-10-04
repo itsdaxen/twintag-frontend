@@ -9,6 +9,8 @@ import {
   FileText,
   Maximize2,
   Upload,
+  Pencil,
+  Clock,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -22,11 +24,48 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 export function WorkspaceDemo() {
   const [assets, setAssets] = useState<AssetTag[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
-  const [tagStatus, setTagStatus] = useState<"loading" | "ready" | "error">(
-    "loading",
-  );
+  const [tagStatus, setTagStatus] = useState<"loading" | "ready" | "error">("loading");
   const [sidebarMode, setSidebarMode] = useState<"list" | "info" | "docs">("list");
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+
+  const [publishedTags, setPublishedTags] = useState<Set<string>>(new Set());
+  const [editedTags, setEditedTags] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    try {
+      const savedPublished = localStorage.getItem("twintag_published_tags");
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (savedPublished) setPublishedTags(new Set(JSON.parse(savedPublished)));
+      const savedEdited = localStorage.getItem("twintag_edited_tags");
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (savedEdited) setEditedTags(new Set(JSON.parse(savedEdited)));
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  const handlePublish = (id: string) => {
+    const nextPublished = new Set(publishedTags);
+    nextPublished.add(id);
+    setPublishedTags(nextPublished);
+    localStorage.setItem("twintag_published_tags", JSON.stringify(Array.from(nextPublished)));
+    
+    // Remove from edited if published
+    if (editedTags.has(id)) {
+      const nextEdited = new Set(editedTags);
+      nextEdited.delete(id);
+      setEditedTags(nextEdited);
+      localStorage.setItem("twintag_edited_tags", JSON.stringify(Array.from(nextEdited)));
+    }
+  };
+
+  const handleEdit = (id: string) => {
+    const nextEdited = new Set(editedTags);
+    nextEdited.add(id);
+    setEditedTags(nextEdited);
+    localStorage.setItem("twintag_edited_tags", JSON.stringify(Array.from(nextEdited)));
+  };
+
 
   const active = selected ? assets.find((asset) => asset.id === selected) : null;
 
@@ -184,11 +223,31 @@ export function WorkspaceDemo() {
                 </h2>
                 <DeviceDetails asset={active} onOpenDocs={() => setSidebarMode("docs")} />
               </div>
-              <div className="border-t p-4">
-                <Button className="w-full">
-                  <Check />
-                  Publish tag
-                </Button>
+              <div className="border-t p-4 flex flex-col gap-2">
+                {publishedTags.has(active.id) ? (
+                  <Button className="w-full font-medium bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm" disabled>
+                    <Check className="mr-1.5" size={18} />
+                    Published
+                  </Button>
+                ) : (
+                  <div className="flex gap-2 w-full">
+                    {editedTags.has(active.id) ? (
+                      <Button variant="outline" className="flex-1 font-medium bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100 shadow-sm" disabled>
+                        <Clock className="mr-1.5" size={16} />
+                        Waiting...
+                      </Button>
+                    ) : (
+                      <Button variant="outline" className="flex-1 font-medium bg-background border-slate-200 shadow-sm" onClick={() => handleEdit(active.id)}>
+                        <Pencil className="mr-1.5" size={16} />
+                        Edit
+                      </Button>
+                    )}
+                    <Button className="flex-1 font-medium bg-blue-600 hover:bg-blue-700 text-white shadow-sm" onClick={() => handlePublish(active.id)}>
+                      <Check className="mr-1.5" size={18} />
+                      Publish
+                    </Button>
+                  </div>
+                )}
               </div>
             </>
           )}
