@@ -1,40 +1,43 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import {
-  Box,
   Check,
   CircleDot,
   FileText,
   Maximize2,
-  ScanLine,
   Upload,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { HybridSpatialViewer } from "@/components/workspace/hybrid-spatial-viewer";
+import type { AssetTag } from "@/lib/asset-tags";
 
-type Selection = "cubicle" | "rex615";
-const assets = [
-  {
-    id: "cubicle" as const,
-    label: "Cubicle A",
-    kind: "Equipment group",
-    confidence: 98,
-  },
-  {
-    id: "rex615" as const,
-    label: "ABB REX615",
-    kind: "Protection relay",
-    confidence: 96,
-  },
-];
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export function WorkspaceDemo() {
-  const [selected, setSelected] = useState<Selection>("rex615");
-  const active = assets.find((asset) => asset.id === selected)!;
+  const [assets, setAssets] = useState<AssetTag[]>([]);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [tagStatus, setTagStatus] = useState<"loading" | "ready" | "error">(
+    "loading",
+  );
+  const active = assets.find((asset) => asset.id === selected) ?? assets[0];
+
+  useEffect(() => {
+    fetch(`${API_URL}/api/scans/veo-reference/tags`)
+      .then((response) => {
+        if (!response.ok) throw new Error("Tags are unavailable");
+        return response.json() as Promise<AssetTag[]>;
+      })
+      .then((tags) => {
+        setAssets(tags);
+        setSelected(tags[0]?.id ?? null);
+        setTagStatus("ready");
+      })
+      .catch(() => setTagStatus("error"));
+  }, []);
 
   return (
     <div className="flex min-h-dvh flex-col gap-4 p-4 pt-20 sm:p-6 md:pt-6 lg:p-8">
@@ -80,7 +83,11 @@ export function WorkspaceDemo() {
           </div>
 
           <div className="relative flex-1 overflow-hidden">
-            <HybridSpatialViewer />
+            <HybridSpatialViewer
+              tags={assets}
+              selectedTagId={active?.id ?? null}
+              onSelectTag={setSelected}
+            />
           </div>
         </section>
 
@@ -88,10 +95,16 @@ export function WorkspaceDemo() {
           <div className="flex h-14 items-center border-b px-5">
             <div>
               <p className="text-sm font-semibold">Detected assets</p>
-              <p className="text-xs text-muted-foreground">2 results</p>
+              <p className="text-xs text-muted-foreground">
+                {tagStatus === "loading"
+                  ? "Locating devices…"
+                  : tagStatus === "error"
+                    ? "Backend unavailable"
+                    : `${assets.length} model-confirmed devices`}
+              </p>
             </div>
           </div>
-          <div className="border-b py-2">
+          <div className="max-h-64 overflow-y-auto border-b py-2">
             {assets.map((asset) => (
               <button
                 key={asset.id}
@@ -107,41 +120,43 @@ export function WorkspaceDemo() {
                 <span
                   className={cn(
                     "grid size-9 shrink-0 place-items-center rounded-xl",
-                    asset.id === "cubicle"
-                      ? "bg-zinc-200 text-zinc-700"
-                      : "bg-blue-100 text-blue-700",
+                    selected === asset.id
+                      ? "bg-blue-100 text-blue-700"
+                      : "bg-subtle text-muted-foreground",
                   )}
                 >
-                  {asset.id === "cubicle" ? (
-                    <Box size={17} />
-                  ) : (
-                    <CircleDot size={17} />
-                  )}
+                  <CircleDot size={17} />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium">
                     {asset.label}
                   </span>
                   <span className="block text-xs text-muted-foreground">
-                    {asset.kind}
+                    {asset.sweep_count} sweep confirmation
                   </span>
                 </span>
                 <span className="text-xs font-semibold text-emerald-700">
-                  {asset.confidence}%
+                  {Math.round(asset.confidence * 100)}%
                 </span>
               </button>
             ))}
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-5">
-            <div>
+            {active ? <div>
               <p className="text-xs font-semibold tracking-wide text-primary uppercase">
                 Selected asset
               </p>
               <h2 className="mt-1 text-xl font-semibold tracking-tight">
                 {active.label}
               </h2>
-            </div>
-            {selected === "rex615" ? <DeviceDetails /> : <CubicleDetails />}
+              <DeviceDetails asset={active} />
+            </div> : (
+              <p className="text-sm text-muted-foreground">
+                {tagStatus === "error"
+                  ? "Start the TwinTag backend to load detected assets."
+                  : "Loading detected assets…"}
+              </p>
+            )}
           </div>
           <div className="border-t p-4">
             <Button className="w-full">
@@ -155,7 +170,7 @@ export function WorkspaceDemo() {
   );
 }
 
-function DeviceDetails() {
+function DeviceDetails({ asset }: { asset: AssetTag }) {
   return (
     <>
       <div className="relative mt-5 aspect-[16/8] overflow-hidden rounded-xl bg-subtle">
@@ -168,11 +183,14 @@ function DeviceDetails() {
         />
       </div>
       <dl className="mt-5 grid grid-cols-2 gap-4 text-sm">
-        <Detail label="Confidence" value="96.4%" />
-        <Detail label="Parent" value="Cubicle A" />
+        <Detail label="Confidence" value={`${(asset.confidence * 100).toFixed(1)}%`} />
+        <Detail label="Confirmed in" value={`${asset.sweep_count} sweeps`} />
       </dl>
       <p className="mt-5 border-t pt-4 font-mono text-xs text-muted-foreground">
-        XYZ · 16.9208, 10.3897, 0.9231
+        XYZ · {asset.position.x.toFixed(3)}, {asset.position.y.toFixed(3)}, {asset.position.z.toFixed(3)}
+      </p>
+      <p className="mt-2 text-xs text-muted-foreground">
+        Spatial agreement ±{Math.round(asset.spatial_spread * 100)} cm · {asset.observation_count} observations
       </p>
       <div className="mt-5">
         <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
@@ -181,22 +199,6 @@ function DeviceDetails() {
         <Document title="REX615 technical manual" />
       </div>
     </>
-  );
-}
-
-function CubicleDetails() {
-  return (
-    <div className="mt-5 rounded-2xl border bg-subtle p-5">
-      <Box className="text-primary" />
-      <p className="mt-4 text-sm font-medium">Equipment group</p>
-      <p className="mt-2 text-sm leading-6 text-muted-foreground">
-        This cubicle contains one recognized protection relay and provides its
-        spatial parent.
-      </p>
-      <div className="mt-4 flex items-center gap-2 text-sm">
-        <ScanLine size={16} className="text-primary" />1 detected child asset
-      </div>
-    </div>
   );
 }
 function Detail({ label, value }: { label: string; value: string }) {

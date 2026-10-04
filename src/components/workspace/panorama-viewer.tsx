@@ -13,9 +13,10 @@ import {
   WebGLRenderer,
 } from "three";
 
+import type { Coordinates } from "@/lib/asset-tags";
+
 const PANORAMA_BASE_URL = "/panoramas/";
 
-type Coordinates = { x: number; y: number; z: number };
 type Rotation = Coordinates & { w: number };
 type PanoramaImage = {
   sweep_index: number;
@@ -23,6 +24,13 @@ type PanoramaImage = {
   path: string;
   position: Coordinates;
   rotation: Rotation;
+  intrinsics: {
+    focal_length: number;
+    pixel_width: number;
+    pixel_height: number;
+    principal_point_x: number;
+    principal_point_y: number;
+  } | null;
 };
 type PanoramaManifest = { images: PanoramaImage[] };
 type Sweep = {

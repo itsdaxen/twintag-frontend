@@ -6,14 +6,28 @@ import { Camera, ScanSearch } from "lucide-react";
 import { PanoramaViewer } from "@/components/workspace/panorama-viewer";
 import { PointCloudViewer } from "@/components/workspace/point-cloud-viewer";
 import { cn } from "@/lib/utils";
+import type { AssetTag } from "@/lib/asset-tags";
 
 type ViewMode = "photo" | "spatial";
 
-export function HybridSpatialViewer() {
-  const [mode, setMode] = useState<ViewMode>("photo");
+export function HybridSpatialViewer({
+  tags,
+  selectedTagId,
+  onSelectTag,
+}: {
+  tags: AssetTag[];
+  selectedTagId: string | null;
+  onSelectTag: (id: string) => void;
+}) {
+  const [mode, setMode] = useState<ViewMode>("spatial");
   return (
     <div className="absolute inset-0">
-      <PointCloudViewer showControls={mode === "spatial"} />
+      <PointCloudViewer
+        showControls={mode === "spatial"}
+        tags={tags}
+        selectedTagId={selectedTagId}
+        onSelectTag={onSelectTag}
+      />
       <div
         className={cn(
           "absolute inset-0 z-5 transition-opacity duration-300",
@@ -25,16 +39,16 @@ export function HybridSpatialViewer() {
 
       <div className="absolute inset-x-0 top-3 z-30 mx-auto flex w-fit rounded-full border border-white/10 bg-slate-950/70 p-1 text-xs text-white shadow-lg backdrop-blur-md">
         <ModeButton
-          active={mode === "photo"}
-          icon={<Camera size={14} />}
-          label="Photo"
-          onClick={() => setMode("photo")}
-        />
-        <ModeButton
           active={mode === "spatial"}
           icon={<ScanSearch size={14} />}
           label="3D"
           onClick={() => setMode("spatial")}
+        />
+        <ModeButton
+          active={mode === "photo"}
+          icon={<Camera size={14} />}
+          label="Photo"
+          onClick={() => setMode("photo")}
         />
       </div>
     </div>

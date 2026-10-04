@@ -15,6 +15,9 @@ import {
 } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
+import type { AssetTag } from "@/lib/asset-tags";
+import { cn } from "@/lib/utils";
+
 const CLOUD_URL = "metadata.json";
 const CLOUD_BASE_URL = "/pointcloud/veo-reference/";
 
@@ -29,6 +32,7 @@ type MoveDirection = "up" | "down" | "left" | "right" | "in" | "out";
 type CameraView = {
   setAxis: (axis: ViewAxis) => void;
   move: (direction: MoveDirection) => void;
+  focusTag: (tagId: string) => void;
 };
 
 const REFERENCE_VIEW = {
@@ -38,10 +42,17 @@ const REFERENCE_VIEW = {
 
 export function PointCloudViewer({
   showControls = true,
+  tags,
+  selectedTagId,
+  onSelectTag,
 }: {
   showControls?: boolean;
+  tags: AssetTag[];
+  selectedTagId: string | null;
+  onSelectTag: (id: string) => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const markerRefs = useRef(new Map<string, HTMLButtonElement>());
   const cameraViewRef = useRef<CameraView | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     "loading",
@@ -54,6 +65,7 @@ export function PointCloudViewer({
     let disposed = false;
     let frame = 0;
     let pointCloud: Awaited<ReturnType<Potree["loadPointCloud"]>> | null = null;
+    let sourceCenter: Vector3 | null = null;
 
     const scene = new Scene();
     scene.background = new Color(0x050914);
@@ -140,6 +152,29 @@ export function PointCloudViewer({
           movement.multiplyScalar(step);
           camera.position.add(movement);
           controls.target.add(movement);
+          controls.update();
+        },
+        focusTag: (tagId: string) => {
+          if (!sourceCenter || !pointCloud) return;
+          const tag = tags.find((t) => t.id === tagId);
+          if (!tag) return;
+          const targetPos = new Vector3(
+            tag.position.x,
+            tag.position.y,
+            tag.position.z,
+          )
+            .sub(sourceCenter)
+            .applyEuler(pointCloud.rotation);
+
+          controls.target.copy(targetPos);
+          const currentDistance = camera.position.distanceTo(controls.target);
+          const distance = Math.min(currentDistance, 2);
+          const dir = camera.position.clone().sub(controls.target).normalize();
+          if (dir.lengthSq() < 0.01) {
+            dir.set(0, 0, 1);
+          }
+          camera.position.copy(targetPos).add(dir.multiplyScalar(distance));
+          camera.updateProjectionMatrix();
           controls.update();
         },
       };
@@ -240,7 +275,7 @@ export function PointCloudViewer({
               .translate(cloud.pcoGeometry.offset.clone().multiplyScalar(-1))
               .applyMatrix4(cloud.matrixWorld)
           : cloud.getBoundingBoxWorld();
-        const sourceCenter = manifest
+        sourceCenter = manifest
           ? new Vector3(
               (manifest.minimum.x + manifest.maximum.x) / 2,
               (manifest.minimum.y + manifest.maximum.y) / 2,
@@ -274,6 +309,31 @@ export function PointCloudViewer({
       if (pointCloud) {
         potree.updatePointClouds([pointCloud], camera, renderer);
       }
+      if (sourceCenter && pointCloud) {
+        const { width, height } = host.getBoundingClientRect();
+        for (const tag of tags) {
+          const marker = markerRefs.current.get(tag.id);
+          if (!marker) continue;
+          const projected = new Vector3(
+            tag.position.x,
+            tag.position.y,
+            tag.position.z,
+          )
+            .sub(sourceCenter)
+            .applyEuler(pointCloud.rotation)
+            .project(camera);
+          const visible =
+            projected.z >= -1 &&
+            projected.z <= 1 &&
+            projected.x >= -1.1 &&
+            projected.x <= 1.1 &&
+            projected.y >= -1.1 &&
+            projected.y <= 1.1;
+          marker.style.display = visible ? "flex" : "none";
+          marker.style.left = `${((projected.x + 1) / 2) * width}px`;
+          marker.style.top = `${((1 - projected.y) / 2) * height}px`;
+        }
+      }
       renderer.render(scene, camera);
       frame = requestAnimationFrame(render);
     };
@@ -290,10 +350,38 @@ export function PointCloudViewer({
       renderer.dispose();
       renderer.domElement.remove();
     };
-  }, []);
+  }, [tags]);
+
+  useEffect(() => {
+    if (status === "ready" && selectedTagId) {
+      cameraViewRef.current?.focusTag(selectedTagId);
+    }
+  }, [selectedTagId, status]);
 
   return (
     <div ref={hostRef} className="absolute inset-0">
+      {showControls && <div className="pointer-events-none absolute inset-0 z-10">
+        {tags.map((tag) => (
+          <button
+            key={tag.id}
+            ref={(element) => {
+              if (element) markerRefs.current.set(tag.id, element);
+              else markerRefs.current.delete(tag.id);
+            }}
+            type="button"
+            onClick={() => onSelectTag(tag.id)}
+            className={cn(
+              "pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 items-center gap-2 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium shadow-lg backdrop-blur-md transition",
+              selectedTagId === tag.id
+                ? "border-blue-300 bg-blue-600 text-white"
+                : "border-white/20 bg-slate-950/75 text-white hover:bg-slate-900",
+            )}
+          >
+            <span className="size-1.5 rounded-full bg-emerald-400" />
+            {tag.label}
+          </button>
+        ))}
+      </div>}
       {status !== "ready" && (
         <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center bg-slate-950 text-sm text-slate-300">
           {status === "loading"
