@@ -55,6 +55,7 @@ export function PointCloudViewer({
   const markerRefs = useRef(new Map<string, HTMLButtonElement>());
   const cameraViewRef = useRef<CameraView | null>(null);
   const selectedTagIdRef = useRef(selectedTagId);
+  const tagsRef = useRef(tags);
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     "loading",
   );
@@ -62,6 +63,10 @@ export function PointCloudViewer({
   useEffect(() => {
     selectedTagIdRef.current = selectedTagId;
   }, [selectedTagId]);
+
+  useEffect(() => {
+    tagsRef.current = tags;
+  }, [tags]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -161,7 +166,7 @@ export function PointCloudViewer({
         },
         focusTag: (tagId: string) => {
           if (!sourceCenter || !pointCloud) return;
-          const tag = tags.find((t) => t.id === tagId);
+          const tag = tagsRef.current.find((t) => t.id === tagId);
           if (!tag) return;
           const targetPos = new Vector3(
             tag.position.x,
@@ -319,7 +324,7 @@ export function PointCloudViewer({
       }
       if (sourceCenter && pointCloud) {
         const { width, height } = host.getBoundingClientRect();
-        for (const tag of tags) {
+        for (const tag of tagsRef.current) {
           const marker = markerRefs.current.get(tag.id);
           if (!marker) continue;
           const projected = new Vector3(
@@ -358,7 +363,7 @@ export function PointCloudViewer({
       renderer.dispose();
       renderer.domElement.remove();
     };
-  }, [tags]);
+  }, []);
 
   useEffect(() => {
     if (status === "ready" && selectedTagId) {

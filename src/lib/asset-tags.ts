@@ -11,7 +11,7 @@ export type AssetTag = {
   id: string;
   asset_type: string;
   label: string;
-  source: "model";
+  source: "model" | "manual";
   status: "detected" | "reviewed";
   confidence: number;
   position: Coordinates;

@@ -11,6 +11,7 @@ import {
   Maximize2,
   Upload,
   Pencil,
+  Plus,
   X,
   Paperclip,
   Trash2,
@@ -40,6 +41,11 @@ type EditDraft = {
   documents: AssetDocument[];
 };
 
+type EditSession = {
+  original: AssetTag;
+  isNew: boolean;
+};
+
 const DEFAULT_DOCUMENTS: AssetDocument[] = [
   { id: "installation", title: "Installation Guide", file: "/documents/REX615_inst_001864_ENc.pdf" },
   { id: "operation", title: "Operation Guide", file: "/documents/REX615_oper_001866_ENd.pdf" },
@@ -61,6 +67,7 @@ export function WorkspaceDemo({ scanId }: { scanId: string }) {
   );
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<EditDraft | null>(null);
+  const [editSession, setEditSession] = useState<EditSession | null>(null);
   const [assetDocuments, setAssetDocuments] = useState<Record<string, AssetDocument[]>>({});
 
   const [publishedTags, setPublishedTags] = useState<Set<string>>(new Set());
@@ -91,7 +98,7 @@ export function WorkspaceDemo({ scanId }: { scanId: string }) {
   const active = selected ? assets.find((asset) => asset.id === selected) : null;
 
   useEffect(() => {
-    fetch(`${API_URL}/api/scans/veo-reference/tags`)
+    fetch(`${API_URL}/api/scans/${encodeURIComponent(scanId)}/tags`)
       .then((response) => {
         if (!response.ok) throw new Error("Tags are unavailable");
         return response.json() as Promise<AssetTag[]>;
@@ -99,11 +106,15 @@ export function WorkspaceDemo({ scanId }: { scanId: string }) {
       .then((tags) => {
         const saved = localStorage.getItem("twintag_asset_overrides");
         const overrides: Record<string, Partial<AssetTag>> = saved ? JSON.parse(saved) : {};
-        setAssets(tags.map((tag) => ({ ...tag, ...overrides[tag.id] })));
+        const manualTags: AssetTag[] = JSON.parse(localStorage.getItem(`twintag_manual_tags:${scanId}`) ?? "[]");
+        setAssets([
+          ...tags.map((tag) => ({ ...tag, ...overrides[tag.id] })),
+          ...manualTags,
+        ]);
         setTagStatus("ready");
       })
       .catch(() => setTagStatus("error"));
-  }, []);
+  }, [scanId]);
 
   const updateUrl = useCallback((updates: Record<string, string | null>) => {
     const url = new URL(window.location.href);
@@ -128,6 +139,7 @@ export function WorkspaceDemo({ scanId }: { scanId: string }) {
   const documentsFor = (id: string) => assetDocuments[id] ?? DEFAULT_DOCUMENTS;
 
   const openEditor = (asset: AssetTag) => {
+    setEditSession({ original: { ...asset, position: { ...asset.position } }, isNew: false });
     setEditDraft({
       label: asset.label,
       assetType: asset.asset_type,
@@ -137,6 +149,66 @@ export function WorkspaceDemo({ scanId }: { scanId: string }) {
       documents: documentsFor(asset.id).map((document) => ({ ...document })),
     });
     setSidebarMode("edit");
+  };
+
+  const createTag = () => {
+    const fallback = assets[0]?.position ?? { x: 0, y: 0, z: 0 };
+    const tag: AssetTag = {
+      id: `manual-${crypto.randomUUID()}`,
+      asset_type: "Manual asset",
+      label: "New asset tag",
+      source: "manual",
+      status: "reviewed",
+      confidence: 1,
+      position: { ...fallback },
+      observation_count: 0,
+      sweep_count: 0,
+      spatial_spread: 0,
+      evidence: [],
+    };
+    setAssets((current) => [...current, tag]);
+    setSelected(tag.id);
+    updateUrl({ tag: tag.id });
+    setEditSession({ original: tag, isNew: true });
+    setEditDraft({
+      label: tag.label,
+      assetType: tag.asset_type,
+      x: String(tag.position.x),
+      y: String(tag.position.y),
+      z: String(tag.position.z),
+      documents: [],
+    });
+    setSidebarMode("edit");
+  };
+
+  const updateDraft = (changes: Partial<EditDraft>) => {
+    if (!active || !editDraft) return;
+    const next = { ...editDraft, ...changes };
+    setEditDraft(next);
+    const position = { x: Number(next.x), y: Number(next.y), z: Number(next.z) };
+    const hasValidPosition = [next.x, next.y, next.z].every((value) => value.trim() !== "")
+      && Object.values(position).every(Number.isFinite);
+    setAssets((current) => current.map((asset) => asset.id === active.id ? {
+      ...asset,
+      label: next.label,
+      asset_type: next.assetType,
+      position: hasValidPosition ? position : asset.position,
+    } : asset));
+  };
+
+  const cancelEdit = () => {
+    if (!editSession) return;
+    if (editSession.isNew) {
+      setAssets((current) => current.filter((asset) => asset.id !== editSession.original.id));
+      setSelected(null);
+      updateUrl({ tag: null });
+      setSidebarMode("list");
+    } else {
+      setAssets((current) => current.map((asset) => asset.id === editSession.original.id ? editSession.original : asset));
+      setSidebarMode("info");
+    }
+    setEditDraft(null);
+    setEditSession(null);
   };
 
   const addDocuments = (event: ChangeEvent<HTMLInputElement>) => {
@@ -163,7 +235,11 @@ export function WorkspaceDemo({ scanId }: { scanId: string }) {
       y: Number(editDraft.y),
       z: Number(editDraft.z),
     };
-    if (!editDraft.label.trim() || Object.values(position).some((value) => !Number.isFinite(value))) return;
+    if (
+      !editDraft.label.trim()
+      || [editDraft.x, editDraft.y, editDraft.z].some((value) => value.trim() === "")
+      || Object.values(position).some((value) => !Number.isFinite(value))
+    ) return;
 
     const updated: AssetTag = {
       ...active,
@@ -174,14 +250,21 @@ export function WorkspaceDemo({ scanId }: { scanId: string }) {
     };
     setAssets((current) => current.map((asset) => asset.id === active.id ? updated : asset));
 
-    const savedOverrides = JSON.parse(localStorage.getItem("twintag_asset_overrides") ?? "{}");
-    savedOverrides[active.id] = {
-      label: updated.label,
-      asset_type: updated.asset_type,
-      position: updated.position,
-      status: updated.status,
-    };
-    localStorage.setItem("twintag_asset_overrides", JSON.stringify(savedOverrides));
+    if (updated.source === "manual") {
+      const manualTags = assets
+        .map((asset) => asset.id === updated.id ? updated : asset)
+        .filter((asset) => asset.source === "manual");
+      localStorage.setItem(`twintag_manual_tags:${scanId}`, JSON.stringify(manualTags));
+    } else {
+      const savedOverrides = JSON.parse(localStorage.getItem("twintag_asset_overrides") ?? "{}");
+      savedOverrides[active.id] = {
+        label: updated.label,
+        asset_type: updated.asset_type,
+        position: updated.position,
+        status: updated.status,
+      };
+      localStorage.setItem("twintag_asset_overrides", JSON.stringify(savedOverrides));
+    }
 
     const nextDocuments = { ...assetDocuments, [active.id]: editDraft.documents };
     setAssetDocuments(nextDocuments);
@@ -197,6 +280,8 @@ export function WorkspaceDemo({ scanId }: { scanId: string }) {
     nextPublished.delete(active.id);
     setPublishedTags(nextPublished);
     localStorage.setItem("twintag_published_tags", JSON.stringify(Array.from(nextPublished)));
+    setEditDraft(null);
+    setEditSession(null);
     setSidebarMode("info");
   };
 
@@ -255,7 +340,7 @@ export function WorkspaceDemo({ scanId }: { scanId: string }) {
         <aside className="flex min-h-0 flex-col border-t bg-background lg:border-t-0 lg:border-l">
           {sidebarMode === "list" && (
             <>
-              <div className="flex h-14 shrink-0 items-center border-b px-5">
+              <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-b px-4">
                 <div>
                   <p className="text-sm font-semibold">Detected assets</p>
                   <p className="text-xs text-muted-foreground">
@@ -263,9 +348,13 @@ export function WorkspaceDemo({ scanId }: { scanId: string }) {
                       ? "Locating devices…"
                       : tagStatus === "error"
                         ? "Backend unavailable"
-                        : `${assets.length} model-confirmed devices`}
+                        : `${assets.length} asset tags`}
                   </p>
                 </div>
+                <Button variant="outline" size="sm" className="h-8 shrink-0 px-2.5" onClick={createTag}>
+                  <Plus size={14} />
+                  Add tag
+                </Button>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto py-2">
                 {assets.map((asset) => (
@@ -295,12 +384,14 @@ export function WorkspaceDemo({ scanId }: { scanId: string }) {
                         {asset.label}
                       </span>
                       <span className="block text-xs text-muted-foreground">
-                        {asset.sweep_count} sweep confirmation
+                        {asset.source === "manual" ? "Manual tag" : `${asset.sweep_count} sweep confirmation`}
                       </span>
                     </span>
-                    <span className="text-xs font-semibold text-emerald-700">
-                      {Math.round(asset.confidence * 100)}%
-                    </span>
+                    {asset.source === "model" && (
+                      <span className="text-xs font-semibold text-emerald-700">
+                        {Math.round(asset.confidence * 100)}%
+                      </span>
+                    )}
                   </button>
                 ))}
                 {tagStatus === "error" && (
@@ -394,12 +485,12 @@ export function WorkspaceDemo({ scanId }: { scanId: string }) {
           {sidebarMode === "edit" && active && editDraft && (
             <>
               <div className="flex h-14 shrink-0 items-center justify-between border-b px-4">
-                <p className="text-sm font-semibold">Edit asset</p>
+                <p className="text-sm font-semibold">{editSession?.isNew ? "Add tag" : "Edit asset"}</p>
                 <Button
                   variant="ghost"
                   size="icon"
                   className="size-8 rounded-full"
-                  onClick={() => setSidebarMode("info")}
+                  onClick={cancelEdit}
                   aria-label="Close editor"
                 >
                   <X size={18} />
@@ -411,14 +502,14 @@ export function WorkspaceDemo({ scanId }: { scanId: string }) {
                     <input
                       className={inputClassName}
                       value={editDraft.label}
-                      onChange={(event) => setEditDraft({ ...editDraft, label: event.target.value })}
+                      onChange={(event) => updateDraft({ label: event.target.value })}
                     />
                   </EditorField>
                   <EditorField label="Asset type">
                     <input
                       className={inputClassName}
                       value={editDraft.assetType}
-                      onChange={(event) => setEditDraft({ ...editDraft, assetType: event.target.value })}
+                      onChange={(event) => updateDraft({ assetType: event.target.value })}
                     />
                   </EditorField>
                   <fieldset>
@@ -435,7 +526,7 @@ export function WorkspaceDemo({ scanId }: { scanId: string }) {
                             aria-label={`${axis.toUpperCase()} coordinate`}
                             className="h-10 min-w-0 flex-1 appearance-none bg-transparent font-mono text-sm outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                             value={editDraft[axis]}
-                            onChange={(event) => setEditDraft({ ...editDraft, [axis]: event.target.value })}
+                            onChange={(event) => updateDraft({ [axis]: event.target.value })}
                           />
                         </label>
                       ))}
@@ -482,15 +573,17 @@ export function WorkspaceDemo({ scanId }: { scanId: string }) {
                     </div>
                   </div>
                   <p className="border-t pt-4 text-xs leading-relaxed text-muted-foreground">
-                    Confidence and scan evidence stay locked to the model result.
+                    {active.source === "model"
+                      ? "Confidence and scan evidence stay locked to the model result."
+                      : "Manual tags can be positioned precisely using their XYZ coordinates."}
                   </p>
                 </div>
               </div>
               <div className="flex shrink-0 gap-2 border-t p-4">
-                <Button variant="outline" className="flex-1" onClick={() => setSidebarMode("info")}>Cancel</Button>
+                <Button variant="outline" className="flex-1" onClick={cancelEdit}>Cancel</Button>
                 <Button className="flex-1" onClick={saveAsset}>
                   <Check size={17} />
-                  Save changes
+                  {editSession?.isNew ? "Add tag" : "Save changes"}
                 </Button>
               </div>
             </>
@@ -528,15 +621,26 @@ function DeviceDetails({ asset, onOpenDocs }: { asset: AssetTag; onOpenDocs: () 
         />
       </div>
       <dl className="mt-5 grid grid-cols-2 gap-4 text-sm">
-        <Detail label="Confidence" value={`${(asset.confidence * 100).toFixed(1)}%`} />
-        <Detail label="Confirmed in" value={`${asset.sweep_count} sweeps`} />
+        {asset.source === "model" ? (
+          <>
+            <Detail label="Confidence" value={`${(asset.confidence * 100).toFixed(1)}%`} />
+            <Detail label="Confirmed in" value={`${asset.sweep_count} sweeps`} />
+          </>
+        ) : (
+          <>
+            <Detail label="Source" value="Manual" />
+            <Detail label="Status" value="Reviewed" />
+          </>
+        )}
       </dl>
       <p className="mt-5 border-t pt-4 font-mono text-xs text-muted-foreground">
         XYZ · {asset.position.x.toFixed(3)}, {asset.position.y.toFixed(3)}, {asset.position.z.toFixed(3)}
       </p>
-      <p className="mt-2 text-xs text-muted-foreground">
-        Spatial agreement ±{Math.round(asset.spatial_spread * 100)} cm · {asset.observation_count} observations
-      </p>
+      {asset.source === "model" && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          Spatial agreement ±{Math.round(asset.spatial_spread * 100)} cm · {asset.observation_count} observations
+        </p>
+      )}
       <div className="mt-5 border-t pt-4">
         <Button variant="outline" className="w-full justify-between" onClick={onOpenDocs}>
           <span className="flex items-center gap-2">
