@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import {
   Check,
   ChevronLeft,
@@ -15,6 +16,8 @@ import {
   X,
   Paperclip,
   Trash2,
+  AlertCircle,
+  LoaderCircle,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -59,7 +62,9 @@ const inputClassName =
 
 export function WorkspaceDemo({ scanId }: { scanId: string }) {
   const searchParams = useSearchParams();
+  const [scanName, setScanName] = useState("VEO reference facility");
   const [assets, setAssets] = useState<AssetTag[]>([]);
+  const [detectedAssets, setDetectedAssets] = useState<AssetTag[]>([]);
   const [selected, setSelected] = useState<string | null>(() => searchParams.get("tag"));
   const [tagStatus, setTagStatus] = useState<"loading" | "ready" | "error">("loading");
   const [sidebarMode, setSidebarMode] = useState<"list" | "info" | "docs" | "edit">(
@@ -69,11 +74,19 @@ export function WorkspaceDemo({ scanId }: { scanId: string }) {
   const [editDraft, setEditDraft] = useState<EditDraft | null>(null);
   const [editSession, setEditSession] = useState<EditSession | null>(null);
   const [assetDocuments, setAssetDocuments] = useState<Record<string, AssetDocument[]>>({});
+  const [processing, setProcessing] = useState(false);
+  const [processingStage, setProcessingStage] = useState("");
+  const [processingProgress, setProcessingProgress] = useState(0);
+  const [processPromptOpen, setProcessPromptOpen] = useState(false);
+  const [deletePromptOpen, setDeletePromptOpen] = useState(false);
+  const [scanProcessed, setScanProcessed] = useState(false);
 
   const [publishedTags, setPublishedTags] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     localStorage.setItem(ACTIVE_SCAN_STORAGE_KEY, scanId);
+    const savedName = localStorage.getItem(`twintag_scan_name:${scanId}`);
+    if (savedName) queueMicrotask(() => setScanName(savedName));
   }, [scanId]);
 
   useEffect(() => {
@@ -107,10 +120,14 @@ export function WorkspaceDemo({ scanId }: { scanId: string }) {
         const saved = localStorage.getItem("twintag_asset_overrides");
         const overrides: Record<string, Partial<AssetTag>> = saved ? JSON.parse(saved) : {};
         const manualTags: AssetTag[] = JSON.parse(localStorage.getItem(`twintag_manual_tags:${scanId}`) ?? "[]");
-        setAssets([
-          ...tags.map((tag) => ({ ...tag, ...overrides[tag.id] })),
-          ...manualTags,
-        ]);
+        const deletedIds = new Set<string>(JSON.parse(localStorage.getItem(`twintag_deleted_tags:${scanId}`) ?? "[]"));
+        const prepared = tags
+          .filter((tag) => !deletedIds.has(tag.id))
+          .map((tag) => ({ ...tag, ...overrides[tag.id] }));
+        const wasProcessed = localStorage.getItem(`twintag_scan_processed:${scanId}`) === "true";
+        setDetectedAssets(prepared);
+        setScanProcessed(wasProcessed);
+        setAssets(wasProcessed ? [...prepared, ...manualTags] : manualTags);
         setTagStatus("ready");
       })
       .catch(() => setTagStatus("error"));
@@ -130,6 +147,37 @@ export function WorkspaceDemo({ scanId }: { scanId: string }) {
     setSelected(id);
     setSidebarMode(id ? "info" : "list");
     updateUrl({ tag: id });
+  };
+
+  const processScan = async () => {
+    const profiles = JSON.parse(localStorage.getItem("twintag_device_profiles") ?? "[]");
+    if (!Array.isArray(profiles) || profiles.length === 0) {
+      setProcessPromptOpen(true);
+      return;
+    }
+    if (tagStatus !== "ready") return;
+    setProcessing(true);
+    setSelected(null);
+    setSidebarMode("list");
+    updateUrl({ tag: null });
+    const stages = [
+      "Running device recognition…",
+      "Comparing detections across sweeps…",
+      "Calculating 3D tag positions…",
+      "Preparing asset tags…",
+    ];
+    for (const [index, stage] of stages.entries()) {
+      setProcessingStage(stage);
+      setProcessingProgress(Math.round((index / stages.length) * 100));
+      await new Promise((resolve) => window.setTimeout(resolve, 850));
+    }
+    setProcessingProgress(100);
+    await new Promise((resolve) => window.setTimeout(resolve, 250));
+    const manualTags = assets.filter((asset) => asset.source === "manual");
+    setAssets([...detectedAssets, ...manualTags]);
+    setScanProcessed(true);
+    localStorage.setItem(`twintag_scan_processed:${scanId}`, "true");
+    setProcessing(false);
   };
 
   useEffect(() => {
@@ -285,20 +333,59 @@ export function WorkspaceDemo({ scanId }: { scanId: string }) {
     setSidebarMode("info");
   };
 
+  const deleteAsset = () => {
+    if (!active) return;
+    const remaining = assets.filter((asset) => asset.id !== active.id);
+    setAssets(remaining);
+    setDetectedAssets((current) => current.filter((asset) => asset.id !== active.id));
+
+    if (active.source === "manual") {
+      localStorage.setItem(
+        `twintag_manual_tags:${scanId}`,
+        JSON.stringify(remaining.filter((asset) => asset.source === "manual")),
+      );
+    } else {
+      const deletedIds = new Set<string>(JSON.parse(localStorage.getItem(`twintag_deleted_tags:${scanId}`) ?? "[]"));
+      deletedIds.add(active.id);
+      localStorage.setItem(`twintag_deleted_tags:${scanId}`, JSON.stringify(Array.from(deletedIds)));
+
+      const overrides = JSON.parse(localStorage.getItem("twintag_asset_overrides") ?? "{}");
+      delete overrides[active.id];
+      localStorage.setItem("twintag_asset_overrides", JSON.stringify(overrides));
+    }
+
+    const nextDocuments = { ...assetDocuments };
+    delete nextDocuments[active.id];
+    setAssetDocuments(nextDocuments);
+    localStorage.setItem("twintag_asset_documents", JSON.stringify(nextDocuments));
+
+    const nextPublished = new Set(publishedTags);
+    nextPublished.delete(active.id);
+    setPublishedTags(nextPublished);
+    localStorage.setItem("twintag_published_tags", JSON.stringify(Array.from(nextPublished)));
+
+    setDeletePromptOpen(false);
+    setEditDraft(null);
+    setEditSession(null);
+    setSelected(null);
+    setSidebarMode("list");
+    updateUrl({ tag: null });
+  };
+
   return (
     <div className="flex min-h-dvh flex-col gap-4 p-4 pt-20 sm:p-6 md:pt-6 lg:p-8">
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
-            VEO reference facility
+            {scanName}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             18 sweeps · 108 images · E57 ready
           </p>
         </div>
-        <Button>
-          <Upload />
-          Process scan
+        <Button onClick={processScan} disabled={processing || tagStatus === "loading"}>
+          {processing ? <LoaderCircle className="animate-spin" /> : scanProcessed ? <Check /> : <Upload />}
+          {processing ? "Detecting assets…" : scanProcessed ? "Processed" : "Process scan"}
         </Button>
       </div>
 
@@ -334,6 +421,24 @@ export function WorkspaceDemo({ scanId }: { scanId: string }) {
               selectedTagId={active?.id ?? null}
               onSelectTag={selectAsset}
             />
+            {processing && (
+              <div className="absolute inset-0 z-40 grid place-items-center bg-slate-950/55 p-6 backdrop-blur-[2px]">
+                <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-slate-950/90 p-5 text-white shadow-2xl">
+                  <div className="flex items-center gap-3">
+                    <span className="grid size-10 place-items-center rounded-xl bg-blue-500/15 text-blue-300">
+                      <LoaderCircle className="animate-spin" size={20} />
+                    </span>
+                    <div>
+                      <p className="text-sm font-semibold">Processing digital twin</p>
+                      <p className="mt-0.5 text-xs text-slate-400">{processingStage}</p>
+                    </div>
+                  </div>
+                  <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/10">
+                    <div className="h-full rounded-full bg-blue-500 transition-[width] duration-500" style={{ width: `${processingProgress}%` }} />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </section>
 
@@ -348,7 +453,9 @@ export function WorkspaceDemo({ scanId }: { scanId: string }) {
                       ? "Locating devices…"
                       : tagStatus === "error"
                         ? "Backend unavailable"
-                        : `${assets.length} asset tags`}
+                        : !scanProcessed
+                          ? "Run processing to detect assets"
+                          : `${assets.length} asset tags`}
                   </p>
                 </div>
                 <Button variant="outline" size="sm" className="h-8 shrink-0 px-2.5" onClick={createTag}>
@@ -397,6 +504,19 @@ export function WorkspaceDemo({ scanId }: { scanId: string }) {
                 {tagStatus === "error" && (
                   <div className="px-5 py-4 text-sm text-muted-foreground">
                     Start the TwinTag backend to load detected assets.
+                  </div>
+                )}
+                {tagStatus === "ready" && assets.length === 0 && (
+                  <div className="grid min-h-56 place-items-center px-6 text-center">
+                    <div>
+                      <span className="mx-auto grid size-10 place-items-center rounded-xl bg-blue-50 text-primary">
+                        <CircleDot size={18} />
+                      </span>
+                      <p className="mt-3 text-sm font-medium">No asset tags yet</p>
+                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                        Process this scan after adding a recognition profile.
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -580,6 +700,17 @@ export function WorkspaceDemo({ scanId }: { scanId: string }) {
                 </div>
               </div>
               <div className="flex shrink-0 gap-2 border-t p-4">
+                {!editSession?.isNew && (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="shrink-0 text-red-600 hover:border-red-200 hover:bg-red-50 hover:text-red-700"
+                    onClick={() => setDeletePromptOpen(true)}
+                    aria-label="Delete tag"
+                  >
+                    <Trash2 size={17} />
+                  </Button>
+                )}
                 <Button variant="outline" className="flex-1" onClick={cancelEdit}>Cancel</Button>
                 <Button className="flex-1" onClick={saveAsset}>
                   <Check size={17} />
@@ -590,6 +721,59 @@ export function WorkspaceDemo({ scanId }: { scanId: string }) {
           )}
         </aside>
       </div>
+
+      {processPromptOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4 backdrop-blur-sm" onMouseDown={() => setProcessPromptOpen(false)}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="process-requirement-title"
+            className="w-full max-w-sm rounded-2xl border bg-background p-6 shadow-2xl"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <span className="grid size-10 place-items-center rounded-xl bg-amber-50 text-amber-700">
+              <AlertCircle size={20} />
+            </span>
+            <h2 id="process-requirement-title" className="mt-4 text-lg font-semibold">Add a device first</h2>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              TwinTag needs at least one trained recognition profile before it can detect assets in this scan.
+            </p>
+            <div className="mt-6 flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setProcessPromptOpen(false)}>Cancel</Button>
+              <Button className="flex-1" asChild>
+                <Link href="/devices">Add device</Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deletePromptOpen && active && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4 backdrop-blur-sm" onMouseDown={() => setDeletePromptOpen(false)}>
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="delete-tag-title"
+            className="w-full max-w-sm rounded-2xl border bg-background p-6 shadow-2xl"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <span className="grid size-10 place-items-center rounded-xl bg-red-50 text-red-600">
+              <Trash2 size={19} />
+            </span>
+            <h2 id="delete-tag-title" className="mt-4 text-lg font-semibold">Delete this tag?</h2>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              {active.label} will be removed from this scan, including its saved edits and documents.
+            </p>
+            <div className="mt-6 flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setDeletePromptOpen(false)}>Cancel</Button>
+              <Button className="flex-1 bg-red-600 text-white hover:bg-red-700" onClick={deleteAsset}>
+                <Trash2 size={16} />
+                Delete tag
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {pdfUrl && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 sm:p-8">
