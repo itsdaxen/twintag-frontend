@@ -5,7 +5,9 @@ import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import {
   Check,
   ChevronLeft,
+  FileText,
   LoaderCircle,
+  Plus,
   Sparkles,
   Upload,
 } from "lucide-react";
@@ -47,6 +49,7 @@ export function DeviceTrainingWorkspace({ onCancel }: { onCancel: () => void }) 
   const [deviceName, setDeviceName] = useState("");
   const [deviceType, setDeviceType] = useState("");
   const [sources, setSources] = useState<File[]>([]);
+  const [documents, setDocuments] = useState<File[]>([]);
   const [result, setResult] = useState<PreviewResult | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = useState("");
@@ -187,7 +190,7 @@ export function DeviceTrainingWorkspace({ onCancel }: { onCancel: () => void }) 
                   <input
                     value={deviceName}
                     onChange={(event) => setDeviceName(event.target.value)}
-                    placeholder="ABB REX615"
+                    placeholder="e.g. ABB REX615"
                     className="mt-2 h-11 w-full rounded-xl border bg-background px-3 font-normal outline-none transition focus:border-primary"
                   />
                 </label>
@@ -196,12 +199,41 @@ export function DeviceTrainingWorkspace({ onCancel }: { onCancel: () => void }) 
                   <input
                     value={deviceType}
                     onChange={(event) => setDeviceType(event.target.value)}
-                    placeholder="Protection relay"
+                    placeholder="e.g. Protection relay"
                     className="mt-2 h-11 w-full rounded-xl border bg-background px-3 font-normal outline-none transition focus:border-primary"
                   />
                 </label>
               </div>
-              <div className="mt-4 flex flex-wrap gap-3">
+
+              <div className="mt-6">
+                <label className="text-sm font-medium">Documentation</label>
+                <div className="flex flex-col gap-2 mt-2">
+                  {documents.map((doc, idx) => (
+                    <div key={idx} className="flex items-center gap-3 rounded-xl border p-3 text-sm">
+                      <FileText size={16} className="text-muted-foreground shrink-0" />
+                      <span className="flex-1 truncate font-medium">{doc.name}</span>
+                      <span className="text-xs text-muted-foreground shrink-0">{(doc.size / 1024 / 1024).toFixed(1)} MB</span>
+                    </div>
+                  ))}
+                  <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed p-4 text-sm font-medium text-muted-foreground transition hover:border-primary/50 hover:bg-blue-50/40">
+                    <input
+                      type="file"
+                      multiple
+                      accept=".pdf,.doc,.docx"
+                      onChange={(e) => {
+                        if (e.target.files) {
+                          setDocuments(prev => [...prev, ...Array.from(e.target.files!)]);
+                        }
+                      }}
+                      className="sr-only"
+                    />
+                    <Plus size={16} />
+                    Attach document
+                  </label>
+                </div>
+              </div>
+
+              <div className="mt-8 flex flex-wrap gap-3">
                 <Button
                   disabled={
                     !deviceName.trim() ||
@@ -277,34 +309,40 @@ export function DeviceTrainingWorkspace({ onCancel }: { onCancel: () => void }) 
 
 function AngleGuide({ view }: { view: (typeof DEVICE_VIEWS)[number]["slug"] }) {
   const isAngled = view !== "front";
+  
   return (
-    <svg
-      viewBox="0 0 64 48"
-      className="h-12 w-16 text-primary"
-      fill="none"
-      aria-hidden="true"
-    >
-      <rect
-        x={isAngled ? 20 : 12}
-        y="5"
-        width={isAngled ? 24 : 40}
-        height="36"
-        rx="3"
-        stroke="currentColor"
-        strokeWidth="2"
+    <svg viewBox="0 0 64 48" className="mb-2 h-10 w-16 text-primary" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect 
+        x={isAngled ? 22 : 14} 
+        y="6" 
+        width={isAngled ? 20 : 36} 
+        height="36" 
+        rx="3" 
       />
-      {isAngled ? (
+      {view === "front" && (
         <>
-          <path d="M26 11h12M26 16h12M26 32h12" stroke="currentColor" strokeWidth="2" />
-          <circle cx={view === "front-left" ? 25 : 39} cy="25" r="2" fill="currentColor" />
+          <rect x="22" y="11" width="20" height="8" rx="1" />
+          <circle cx="26" cy="15" r="1.5" fill="currentColor" stroke="none" />
+          <circle cx="32" cy="15" r="1.5" fill="currentColor" stroke="none" />
+          <circle cx="38" cy="15" r="1.5" fill="currentColor" stroke="none" />
+          <path d="M22 28h20" />
         </>
-      ) : (
+      )}
+      {view === "front-left" && (
         <>
-          <rect x="18" y="11" width="28" height="9" rx="1" stroke="currentColor" strokeWidth="2" />
-          <circle cx="22" cy="28" r="2" fill="currentColor" />
-          <circle cx="32" cy="28" r="2" fill="currentColor" />
-          <circle cx="42" cy="28" r="2" fill="currentColor" />
-          <path d="M18 35h28" stroke="currentColor" strokeWidth="2" />
+          <path d="M28 13h8M28 20h8" />
+          <circle cx="27" cy="34" r="2.5" fill="currentColor" stroke="none" />
+        </>
+      )}
+      {view === "front-right" && (
+        <>
+          <path d="M28 13h8M28 20h8" />
+          <circle cx="37" cy="34" r="2.5" fill="currentColor" stroke="none" />
+        </>
+      )}
+      {view === "side" && (
+        <>
+          <path d="M28 12h8M28 18h8M28 24h8" />
         </>
       )}
     </svg>
