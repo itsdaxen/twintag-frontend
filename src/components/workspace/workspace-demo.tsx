@@ -53,7 +53,7 @@ export function WorkspaceDemo() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
-            HOS — Solar 2
+            VEO reference facility
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             18 sweeps · 108 images · E57 ready
