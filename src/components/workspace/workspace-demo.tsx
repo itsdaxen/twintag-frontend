@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { getFileTypeIconAsUrl } from "@fluentui/react-file-type-icons";
 import { HybridSpatialViewer } from "@/components/workspace/hybrid-spatial-viewer";
+import { ACTIVE_SCAN_STORAGE_KEY } from "@/components/workspace/workspace-resume";
 import type { AssetTag } from "@/lib/asset-tags";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -63,6 +64,10 @@ export function WorkspaceDemo({ scanId }: { scanId: string }) {
   const [assetDocuments, setAssetDocuments] = useState<Record<string, AssetDocument[]>>({});
 
   const [publishedTags, setPublishedTags] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    localStorage.setItem(ACTIVE_SCAN_STORAGE_KEY, scanId);
+  }, [scanId]);
 
   useEffect(() => {
     try {
