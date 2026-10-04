@@ -54,9 +54,14 @@ export function PointCloudViewer({
   const hostRef = useRef<HTMLDivElement>(null);
   const markerRefs = useRef(new Map<string, HTMLButtonElement>());
   const cameraViewRef = useRef<CameraView | null>(null);
+  const selectedTagIdRef = useRef(selectedTagId);
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     "loading",
   );
+
+  useEffect(() => {
+    selectedTagIdRef.current = selectedTagId;
+  }, [selectedTagId]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -298,6 +303,9 @@ export function PointCloudViewer({
             })()
           : undefined;
         fitView(viewBounds, openingView);
+        if (selectedTagIdRef.current) {
+          cameraViewRef.current?.focusTag(selectedTagIdRef.current);
+        }
         setStatus("ready");
       })
       .catch(() => {

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ChangeEvent, type ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import {
   Check,
@@ -10,7 +11,9 @@ import {
   Maximize2,
   Upload,
   Pencil,
-  Clock,
+  X,
+  Paperclip,
+  Trash2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -21,24 +24,53 @@ import type { AssetTag } from "@/lib/asset-tags";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-export function WorkspaceDemo() {
+type AssetDocument = {
+  id: string;
+  title: string;
+  file: string;
+};
+
+type EditDraft = {
+  label: string;
+  assetType: string;
+  x: string;
+  y: string;
+  z: string;
+  documents: AssetDocument[];
+};
+
+const DEFAULT_DOCUMENTS: AssetDocument[] = [
+  { id: "installation", title: "Installation Guide", file: "/documents/REX615_inst_001864_ENc.pdf" },
+  { id: "operation", title: "Operation Guide", file: "/documents/REX615_oper_001866_ENd.pdf" },
+  { id: "iec61850", title: "IEC 61850 Engineering Guide", file: "/documents/REX615_iec61850eng_001863_ENc.pdf" },
+  { id: "quick-install", title: "Quick Installation Guide", file: "/documents/REX615_Quick_installation_guide_2NGA001854_ENb.pdf" },
+  { id: "quick-start", title: "Quick Start Guide", file: "/documents/REX615_QSG_2NGA002926_ENb.pdf" },
+];
+
+const inputClassName =
+  "h-10 w-full rounded-xl border bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/10";
+
+export function WorkspaceDemo({ scanId }: { scanId: string }) {
+  const searchParams = useSearchParams();
   const [assets, setAssets] = useState<AssetTag[]>([]);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(() => searchParams.get("tag"));
   const [tagStatus, setTagStatus] = useState<"loading" | "ready" | "error">("loading");
-  const [sidebarMode, setSidebarMode] = useState<"list" | "info" | "docs">("list");
+  const [sidebarMode, setSidebarMode] = useState<"list" | "info" | "docs" | "edit">(
+    () => searchParams.get("tag") ? "info" : "list",
+  );
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<EditDraft | null>(null);
+  const [assetDocuments, setAssetDocuments] = useState<Record<string, AssetDocument[]>>({});
 
   const [publishedTags, setPublishedTags] = useState<Set<string>>(new Set());
-  const [editedTags, setEditedTags] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     try {
       const savedPublished = localStorage.getItem("twintag_published_tags");
       // eslint-disable-next-line react-hooks/set-state-in-effect
       if (savedPublished) setPublishedTags(new Set(JSON.parse(savedPublished)));
-      const savedEdited = localStorage.getItem("twintag_edited_tags");
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (savedEdited) setEditedTags(new Set(JSON.parse(savedEdited)));
+      const savedDocuments = localStorage.getItem("twintag_asset_documents");
+      if (savedDocuments) setAssetDocuments(JSON.parse(savedDocuments));
     } catch (e) {
       console.error(e);
     }
@@ -49,23 +81,7 @@ export function WorkspaceDemo() {
     nextPublished.add(id);
     setPublishedTags(nextPublished);
     localStorage.setItem("twintag_published_tags", JSON.stringify(Array.from(nextPublished)));
-    
-    // Remove from edited if published
-    if (editedTags.has(id)) {
-      const nextEdited = new Set(editedTags);
-      nextEdited.delete(id);
-      setEditedTags(nextEdited);
-      localStorage.setItem("twintag_edited_tags", JSON.stringify(Array.from(nextEdited)));
-    }
   };
-
-  const handleEdit = (id: string) => {
-    const nextEdited = new Set(editedTags);
-    nextEdited.add(id);
-    setEditedTags(nextEdited);
-    localStorage.setItem("twintag_edited_tags", JSON.stringify(Array.from(nextEdited)));
-  };
-
 
   const active = selected ? assets.find((asset) => asset.id === selected) : null;
 
@@ -76,15 +92,107 @@ export function WorkspaceDemo() {
         return response.json() as Promise<AssetTag[]>;
       })
       .then((tags) => {
-        setAssets(tags);
+        const saved = localStorage.getItem("twintag_asset_overrides");
+        const overrides: Record<string, Partial<AssetTag>> = saved ? JSON.parse(saved) : {};
+        setAssets(tags.map((tag) => ({ ...tag, ...overrides[tag.id] })));
         setTagStatus("ready");
       })
       .catch(() => setTagStatus("error"));
   }, []);
 
+  const updateUrl = useCallback((updates: Record<string, string | null>) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("scan", scanId);
+    for (const [key, value] of Object.entries(updates)) {
+      if (value === null) url.searchParams.delete(key);
+      else url.searchParams.set(key, value);
+    }
+    window.history.replaceState(window.history.state, "", url);
+  }, [scanId]);
+
   const selectAsset = (id: string | null) => {
     setSelected(id);
     setSidebarMode(id ? "info" : "list");
+    updateUrl({ tag: id });
+  };
+
+  useEffect(() => {
+    updateUrl({ camera: null, view: null });
+  }, [updateUrl]);
+
+  const documentsFor = (id: string) => assetDocuments[id] ?? DEFAULT_DOCUMENTS;
+
+  const openEditor = (asset: AssetTag) => {
+    setEditDraft({
+      label: asset.label,
+      assetType: asset.asset_type,
+      x: String(asset.position.x),
+      y: String(asset.position.y),
+      z: String(asset.position.z),
+      documents: documentsFor(asset.id).map((document) => ({ ...document })),
+    });
+    setSidebarMode("edit");
+  };
+
+  const addDocuments = (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    if (!files.length) return;
+    setEditDraft((draft) => draft ? {
+      ...draft,
+      documents: [
+        ...draft.documents,
+        ...files.map((file, index) => ({
+          id: `upload-${Date.now()}-${index}`,
+          title: file.name.replace(/\.pdf$/i, ""),
+          file: URL.createObjectURL(file),
+        })),
+      ],
+    } : draft);
+    event.target.value = "";
+  };
+
+  const saveAsset = () => {
+    if (!active || !editDraft) return;
+    const position = {
+      x: Number(editDraft.x),
+      y: Number(editDraft.y),
+      z: Number(editDraft.z),
+    };
+    if (!editDraft.label.trim() || Object.values(position).some((value) => !Number.isFinite(value))) return;
+
+    const updated: AssetTag = {
+      ...active,
+      label: editDraft.label.trim(),
+      asset_type: editDraft.assetType.trim() || active.asset_type,
+      position,
+      status: "reviewed",
+    };
+    setAssets((current) => current.map((asset) => asset.id === active.id ? updated : asset));
+
+    const savedOverrides = JSON.parse(localStorage.getItem("twintag_asset_overrides") ?? "{}");
+    savedOverrides[active.id] = {
+      label: updated.label,
+      asset_type: updated.asset_type,
+      position: updated.position,
+      status: updated.status,
+    };
+    localStorage.setItem("twintag_asset_overrides", JSON.stringify(savedOverrides));
+
+    const nextDocuments = { ...assetDocuments, [active.id]: editDraft.documents };
+    setAssetDocuments(nextDocuments);
+    localStorage.setItem(
+      "twintag_asset_documents",
+      JSON.stringify(Object.fromEntries(Object.entries(nextDocuments).map(([id, documents]) => [
+        id,
+        documents.filter((document) => !document.file.startsWith("blob:")),
+      ]))),
+    );
+
+    const nextPublished = new Set(publishedTags);
+    nextPublished.delete(active.id);
+    setPublishedTags(nextPublished);
+    localStorage.setItem("twintag_published_tags", JSON.stringify(Array.from(nextPublished)));
+    setSidebarMode("info");
   };
 
   return (
@@ -225,25 +333,24 @@ export function WorkspaceDemo() {
               </div>
               <div className="border-t p-4 flex flex-col gap-2">
                 {publishedTags.has(active.id) ? (
-                  <Button className="w-full font-medium bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm" disabled>
-                    <Check className="mr-1.5" size={18} />
-                    Published
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button variant="outline" className="flex-1" onClick={() => openEditor(active)}>
+                      <Pencil size={16} />
+                      Edit
+                    </Button>
+                    <Button className="flex-1 bg-emerald-600 text-white hover:bg-emerald-700" disabled>
+                      <Check size={18} />
+                      Published
+                    </Button>
+                  </div>
                 ) : (
                   <div className="flex gap-2 w-full">
-                    {editedTags.has(active.id) ? (
-                      <Button variant="outline" className="flex-1 font-medium bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100 shadow-sm" disabled>
-                        <Clock className="mr-1.5" size={16} />
-                        Waiting...
-                      </Button>
-                    ) : (
-                      <Button variant="outline" className="flex-1 font-medium bg-background border-slate-200 shadow-sm" onClick={() => handleEdit(active.id)}>
-                        <Pencil className="mr-1.5" size={16} />
-                        Edit
-                      </Button>
-                    )}
-                    <Button className="flex-1 font-medium bg-blue-600 hover:bg-blue-700 text-white shadow-sm" onClick={() => handlePublish(active.id)}>
-                      <Check className="mr-1.5" size={18} />
+                    <Button variant="outline" className="flex-1" onClick={() => openEditor(active)}>
+                      <Pencil size={16} />
+                      Edit
+                    </Button>
+                    <Button className="flex-1 bg-blue-600 text-white hover:bg-blue-700" onClick={() => handlePublish(active.id)}>
+                      <Check size={18} />
                       Publish
                     </Button>
                   </div>
@@ -272,12 +379,114 @@ export function WorkspaceDemo() {
                   {active.label} Manuals
                 </h2>
                 <div className="flex flex-col gap-2">
-                  <Document title="Installation Guide" file="/documents/REX615_inst_001864_ENc.pdf" onClick={setPdfUrl} />
-                  <Document title="Operation Guide" file="/documents/REX615_oper_001866_ENd.pdf" onClick={setPdfUrl} />
-                  <Document title="IEC61850 Engineering Guide" file="/documents/REX615_iec61850eng_001863_ENc.pdf" onClick={setPdfUrl} />
-                  <Document title="Quick Installation Guide" file="/documents/REX615_Quick_installation_guide_2NGA001854_ENb.pdf" onClick={setPdfUrl} />
-                  <Document title="Quick Start Guide" file="/documents/REX615_QSG_2NGA002926_ENb.pdf" onClick={setPdfUrl} />
+                  {documentsFor(active.id).map((document) => (
+                    <Document key={document.id} title={document.title} file={document.file} onClick={setPdfUrl} />
+                  ))}
                 </div>
+              </div>
+            </>
+          )}
+          {sidebarMode === "edit" && active && editDraft && (
+            <>
+              <div className="flex h-14 shrink-0 items-center justify-between border-b px-4">
+                <p className="text-sm font-semibold">Edit asset</p>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 rounded-full"
+                  onClick={() => setSidebarMode("info")}
+                  aria-label="Close editor"
+                >
+                  <X size={18} />
+                </Button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto p-5">
+                <div className="space-y-5">
+                  <EditorField label="Asset name">
+                    <input
+                      className={inputClassName}
+                      value={editDraft.label}
+                      onChange={(event) => setEditDraft({ ...editDraft, label: event.target.value })}
+                    />
+                  </EditorField>
+                  <EditorField label="Asset type">
+                    <input
+                      className={inputClassName}
+                      value={editDraft.assetType}
+                      onChange={(event) => setEditDraft({ ...editDraft, assetType: event.target.value })}
+                    />
+                  </EditorField>
+                  <fieldset>
+                    <legend className="mb-2 text-xs font-medium text-muted-foreground">Coordinates</legend>
+                    <div className="space-y-2">
+                      {(["x", "y", "z"] as const).map((axis) => (
+                        <label key={axis} className="flex items-center gap-3 rounded-xl border bg-background px-3 focus-within:border-primary focus-within:ring-3 focus-within:ring-primary/10">
+                          <span className="w-4 shrink-0 text-xs font-semibold text-muted-foreground uppercase">
+                            {axis}
+                          </span>
+                          <input
+                            type="number"
+                            step="0.001"
+                            aria-label={`${axis.toUpperCase()} coordinate`}
+                            className="h-10 min-w-0 flex-1 appearance-none bg-transparent font-mono text-sm outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                            value={editDraft[axis]}
+                            onChange={(event) => setEditDraft({ ...editDraft, [axis]: event.target.value })}
+                          />
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+                  <div className="border-t pt-5">
+                    <div className="mb-3 flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">Documents</p>
+                        <p className="text-xs text-muted-foreground">{editDraft.documents.length} attached</p>
+                      </div>
+                      <label className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium transition hover:bg-subtle">
+                        <Paperclip size={14} />
+                        Attach PDF
+                        <input type="file" accept="application/pdf" multiple className="sr-only" onChange={addDocuments} />
+                      </label>
+                    </div>
+                    <div className="space-y-2">
+                      {editDraft.documents.map((document) => (
+                        <div key={document.id} className="flex items-center gap-2 rounded-xl border px-3 py-2.5">
+                          <DocumentIcon file={document.file} />
+                          <input
+                            aria-label="Document title"
+                            className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+                            value={document.title}
+                            onChange={(event) => setEditDraft({
+                              ...editDraft,
+                              documents: editDraft.documents.map((item) => item.id === document.id ? { ...item, title: event.target.value } : item),
+                            })}
+                          />
+                          <button
+                            type="button"
+                            aria-label={`Remove ${document.title}`}
+                            className="grid size-7 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-red-50 hover:text-red-600"
+                            onClick={() => setEditDraft({
+                              ...editDraft,
+                              documents: editDraft.documents.filter((item) => item.id !== document.id),
+                            })}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <p className="border-t pt-4 text-xs leading-relaxed text-muted-foreground">
+                    Confidence and scan evidence stay locked to the model result.
+                  </p>
+                </div>
+              </div>
+              <div className="flex shrink-0 gap-2 border-t p-4">
+                <Button variant="outline" className="flex-1" onClick={() => setSidebarMode("info")}>Cancel</Button>
+                <Button className="flex-1" onClick={saveAsset}>
+                  <Check size={17} />
+                  Save changes
+                </Button>
               </div>
             </>
           )}
@@ -342,6 +551,15 @@ function Detail({ label, value }: { label: string; value: string }) {
       <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="mt-1 font-medium">{value}</dd>
     </div>
+  );
+}
+
+function EditorField({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-xs font-medium text-muted-foreground">{label}</span>
+      {children}
+    </label>
   );
 }
 

@@ -27,5 +27,6 @@ export default async function WorkspacePage({
     );
   }
 
-  return <WorkspaceDemo />;
+  const scanId = Array.isArray(params.scan) ? params.scan[0] : params.scan;
+  return <WorkspaceDemo scanId={scanId} />;
 }

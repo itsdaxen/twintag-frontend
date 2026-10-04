@@ -130,7 +130,7 @@ export default function ScansPage() {
                 <div className="absolute top-0 left-0 w-full h-1 bg-subtle">
                   <div 
                     className="h-full bg-primary transition-all duration-300 ease-linear" 
-                    style={{ width: `\${scan.progress}%` }} 
+                    style={{ width: `${scan.progress}%` }}
                   />
                 </div>
                 <h3 className="font-semibold text-lg">{scan.name}</h3>
@@ -144,7 +144,7 @@ export default function ScansPage() {
           }
 
           return (
-            <Link key={scan.id} href={`/workspace?scan=\${scan.id}`} className="block group">
+            <Link key={scan.id} href={`/workspace?scan=${encodeURIComponent(scan.id)}`} className="block group">
               <div className="border rounded-2xl p-5 hover:border-primary transition bg-card h-full flex flex-col">
                 <h3 className="font-semibold text-lg group-hover:text-primary transition">{scan.name}</h3>
                 <p className="text-sm text-muted-foreground mt-1 mb-4 flex-1">18 sweeps · 108 images · E57 ready</p>
